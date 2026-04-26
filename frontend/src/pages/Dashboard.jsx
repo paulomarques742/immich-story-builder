@@ -62,7 +62,14 @@ export default function Dashboard() {
                   : <div style={styles.cardPlaceholder} />}
               </div>
               <div style={styles.cardBody}>
-                <p style={styles.cardTitle}>{s.title}</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <p style={{ ...styles.cardTitle, flex: 1 }}>{s.title}</p>
+                  {s.pending_sync > 0 && (
+                    <span style={styles.syncBadge} title={`${s.pending_sync} novas fotos`}>
+                      {s.pending_sync} novas
+                    </span>
+                  )}
+                </div>
                 <p style={styles.cardMeta}>
                   {s.published ? '✓ Publicado' : '● Rascunho'} · /{s.slug}
                 </p>
@@ -112,6 +119,7 @@ const styles = {
   cardMeta: { fontSize: 12, color: '#888', marginTop: 4 },
   btnPrimary: { padding: '8px 18px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   btnSecondary: { padding: '8px 18px', background: '#fff', color: '#333', border: '1px solid #ddd', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
+  syncBadge: { background: '#e67e22', color: '#fff', fontSize: 11, padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 },
   input: { padding: '10px 14px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   modal: { background: '#fff', borderRadius: 12, padding: 28, width: 360, boxShadow: '0 8px 40px rgba(0,0,0,.15)' },

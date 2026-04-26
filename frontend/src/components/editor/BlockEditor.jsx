@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import AssetPicker from './AssetPicker.jsx';
+import api from '../../lib/api.js';
 
 export default function BlockEditor({ block, onChange }) {
   const [content, setContent] = useState({});
@@ -18,6 +19,9 @@ export default function BlockEditor({ block, onChange }) {
   if (block.type === 'hero') return <HeroEditor content={content} update={update} />;
   if (block.type === 'grid') return <GridEditor content={content} update={update} />;
   if (block.type === 'text') return <TextEditor content={content} update={update} />;
+  if (block.type === 'map') return <MapEditor content={content} update={update} onChange={onChange} setContent={setContent} />;
+  if (block.type === 'video') return <VideoEditor content={content} update={update} />;
+  if (block.type === 'divider') return <DividerEditor content={content} update={update} />;
   return <p style={s.hint}>Sem editor para tipo "{block.type}"</p>;
 }
 
@@ -187,6 +191,137 @@ function TextEditor({ content, update }) {
           <option value="narrow">Estreita (45ch)</option>
           <option value="prose">Prose (65ch)</option>
           <option value="wide">Larga (100%)</option>
+        </select>
+      </Field>
+    </div>
+  );
+}
+
+/* ── Map editor ──────────────────────────────────────────────── */
+function MapEditor({ content, update, onChange, setContent }) {
+  const [resolving, setResolving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  async function resolveGPS() {
+    const assetIds = content.asset_ids || [];
+    if (!assetIds.length) return;
+    setResolving(true);
+    try {
+      const results = await Promise.all(
+        assetIds.map((id) => api.get(`/api/immich/assets/${id}/exif`).then((r) => ({ asset_id: id, ...r.data })).catch(() => ({ asset_id: id, lat: null, lng: null })))
+      );
+      const next = { ...content, resolved_markers: results.filter((r) => r.lat != null) };
+      setContent(next);
+      onChange(next);
+    } finally {
+      setResolving(false);
+    }
+  }
+
+  return (
+    <div style={s.form}>
+      <h3 style={s.heading}>Mapa</h3>
+
+      <Field label="Modo">
+        <select style={s.input} value={content.mode || 'manual'} onChange={(e) => update('mode', e.target.value)}>
+          <option value="manual">Manual (pin único)</option>
+          <option value="auto">Auto (GPS dos assets)</option>
+        </select>
+      </Field>
+
+      {(content.mode || 'manual') === 'manual' && (
+        <>
+          <Field label="Latitude">
+            <input style={s.input} type="number" step="any" value={content.lat ?? ''} onChange={(e) => update('lat', parseFloat(e.target.value) || null)} placeholder="38.7169" />
+          </Field>
+          <Field label="Longitude">
+            <input style={s.input} type="number" step="any" value={content.lng ?? ''} onChange={(e) => update('lng', parseFloat(e.target.value) || null)} placeholder="-9.1399" />
+          </Field>
+          <Field label="Zoom">
+            <input style={s.input} type="number" min="1" max="18" value={content.zoom ?? 12} onChange={(e) => update('zoom', parseInt(e.target.value) || 12)} />
+          </Field>
+          <Field label="Etiqueta">
+            <input style={s.input} value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="Lisboa" />
+          </Field>
+        </>
+      )}
+
+      {content.mode === 'auto' && (
+        <>
+          <Field label={`Assets GPS (${(content.asset_ids || []).length})`}>
+            <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>Seleccionar assets…</button>
+            {(content.resolved_markers || []).length > 0 && (
+              <p style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{content.resolved_markers.length} ponto(s) resolvido(s)</p>
+            )}
+          </Field>
+          <button style={s.btnPickFull} onClick={resolveGPS} disabled={resolving || !(content.asset_ids || []).length}>
+            {resolving ? 'A resolver GPS...' : '📍 Resolver coordenadas GPS'}
+          </button>
+          <Field label="Mostrar rota">
+            <label style={s.checkLabel}>
+              <input type="checkbox" checked={!!content.show_route} onChange={(e) => update('show_route', e.target.checked)} />
+              {' '}Ligar pontos com linha
+            </label>
+          </Field>
+          <Field label="Cor da rota">
+            <input style={{ ...s.input, padding: 2, height: 34 }} type="color" value={content.route_color || '#E07B54'} onChange={(e) => update('route_color', e.target.value)} />
+          </Field>
+        </>
+      )}
+
+      {pickerOpen && (
+        <AssetPicker multiple={true} initialSelected={content.asset_ids || []}
+          onSelect={(ids) => update('asset_ids', ids)} onClose={() => setPickerOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ── Video editor ─────────────────────────────────────────────── */
+function VideoEditor({ content, update }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <div style={s.form}>
+      <h3 style={s.heading}>Vídeo</h3>
+      <Field label="Asset ID">
+        <div style={s.assetRow}>
+          <input style={s.input} value={content.asset_id || ''} onChange={(e) => update('asset_id', e.target.value)} placeholder="asset_id Immich" />
+          <button style={s.btnPick} onClick={() => setPickerOpen(true)} title="Escolher">🎬</button>
+        </div>
+      </Field>
+      <Field label="Caption">
+        <input style={s.input} value={content.caption || ''} onChange={(e) => update('caption', e.target.value)} placeholder="Legenda opcional" />
+      </Field>
+      <Field label="Opções">
+        <label style={s.checkLabel}>
+          <input type="checkbox" checked={!!content.autoplay} onChange={(e) => update('autoplay', e.target.checked)} />
+          {' '}Autoplay
+        </label>
+        <label style={{ ...s.checkLabel, marginTop: 6 }}>
+          <input type="checkbox" checked={!!content.loop} onChange={(e) => update('loop', e.target.checked)} />
+          {' '}Loop
+        </label>
+      </Field>
+      {pickerOpen && (
+        <AssetPicker multiple={false} initialSelected={content.asset_id ? [content.asset_id] : []}
+          onSelect={(id) => update('asset_id', id)} onClose={() => setPickerOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ── Divider editor ───────────────────────────────────────────── */
+function DividerEditor({ content, update }) {
+  return (
+    <div style={s.form}>
+      <h3 style={s.heading}>Divisor</h3>
+      <Field label="Etiqueta">
+        <input style={s.input} value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="2024 · Verão" />
+      </Field>
+      <Field label="Estilo">
+        <select style={s.input} value={content.style || 'line'} onChange={(e) => update('style', e.target.value)}>
+          <option value="line">Linha</option>
+          <option value="space">Espaço</option>
         </select>
       </Field>
     </div>

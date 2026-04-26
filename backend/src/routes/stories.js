@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
@@ -20,10 +21,10 @@ function canEdit(user, story) {
 
 // GET /api/stories
 router.get('/', requireAuth, (req, res) => {
-  const stories = req.user.role === 'admin'
-    ? db.prepare('SELECT * FROM stories ORDER BY updated_at DESC').all()
-    : db.prepare('SELECT * FROM stories WHERE created_by = ? ORDER BY updated_at DESC').all(req.user.id);
-  res.json(stories);
+  const base = req.user.role === 'admin'
+    ? db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM sync_notifications sn WHERE sn.story_id = s.id AND sn.dismissed = 0) as pending_sync FROM stories s ORDER BY s.updated_at DESC`).all()
+    : db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM sync_notifications sn WHERE sn.story_id = s.id AND sn.dismissed = 0) as pending_sync FROM stories s WHERE s.created_by = ? ORDER BY s.updated_at DESC`).all(req.user.id);
+  res.json(base);
 });
 
 // POST /api/stories
@@ -115,6 +116,41 @@ router.post('/:id/publish', requireAuth, (req, res) => {
   db.prepare('UPDATE stories SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
     .run(newState, story.id);
   res.json({ published: !!newState });
+});
+
+// POST /api/stories/:id/password
+router.post('/:id/password', requireAuth, (req, res) => {
+  const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(req.params.id);
+  if (!story) return res.status(404).json({ error: 'Not found' });
+  if (!canEdit(req.user, story)) return res.status(403).json({ error: 'Forbidden' });
+
+  const { password } = req.body;
+  const hash = password ? bcrypt.hashSync(password, 10) : null;
+  db.prepare('UPDATE stories SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, story.id);
+  res.json({ has_password: !!hash });
+});
+
+// GET /api/stories/:id/sync/status
+router.get('/:id/sync/status', requireAuth, (req, res) => {
+  const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(req.params.id);
+  if (!story) return res.status(404).json({ error: 'Not found' });
+  if (!canEdit(req.user, story)) return res.status(403).json({ error: 'Forbidden' });
+
+  const notifications = db.prepare(
+    'SELECT * FROM sync_notifications WHERE story_id = ? AND dismissed = 0 ORDER BY created_at DESC'
+  ).all(story.id);
+
+  const newAssetIds = notifications.flatMap((n) => JSON.parse(n.new_asset_ids || '[]'));
+  res.json({ notifications, new_asset_count: newAssetIds.length });
+});
+
+// POST /api/stories/:id/sync/dismiss
+router.post('/:id/sync/dismiss', requireAuth, (req, res) => {
+  const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(req.params.id);
+  if (!story) return res.status(404).json({ error: 'Not found' });
+  if (!canEdit(req.user, story)) return res.status(403).json({ error: 'Forbidden' });
+  db.prepare('UPDATE sync_notifications SET dismissed = 1 WHERE story_id = ?').run(story.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;

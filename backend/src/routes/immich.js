@@ -55,32 +55,48 @@ router.get('/assets/:assetId/thumb', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/immich/assets/:assetId/original
+// GET /api/immich/assets/:assetId/original  (supports Range for video seeking)
 router.get('/assets/:assetId/original', requireAuth, async (req, res) => {
   if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
     const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const headers = { 'x-api-key': req.user.immich_token };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
     const response = await axios.get(
       `${baseURL}/api/assets/${req.params.assetId}/original`,
-      {
-        headers: { 'x-api-key': req.user.immich_token },
-        responseType: 'stream',
-      }
+      { headers, responseType: 'stream' }
     );
-    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+
+    res.status(response.status);
+    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+    for (const h of forward) {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
+    }
     response.data.pipe(res);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: 'Immich error' });
   }
 });
 
-// GET /api/public/:slug — public viewer (no auth)
-router.get('/public/:slug', (req, res) => {
-  const story = db.prepare('SELECT * FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  const blocks = db.prepare('SELECT * FROM blocks WHERE story_id = ? ORDER BY position ASC').all(story.id);
-  const { password_hash, ...publicStory } = story;
-  res.json({ story: publicStory, blocks });
+// GET /api/immich/assets/:assetId/exif  — GPS + EXIF metadata
+router.get('/assets/:assetId/exif', requireAuth, async (req, res) => {
+  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
+  try {
+    const { data } = await immichClient(req.user.immich_token).get(`/assets/${req.params.assetId}`);
+    const exif = data.exifInfo || {};
+    res.json({
+      lat: exif.latitude ?? null,
+      lng: exif.longitude ?? null,
+      city: exif.city ?? null,
+      country: exif.country ?? null,
+      make: exif.make ?? null,
+      model: exif.model ?? null,
+      dateTimeOriginal: exif.dateTimeOriginal ?? null,
+    });
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
 });
 
 module.exports = router;

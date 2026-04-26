@@ -8,13 +8,18 @@ import AlbumImporter from '../components/editor/AlbumImporter.jsx';
 import HeroBlock from '../components/blocks/HeroBlock.jsx';
 import GridBlock from '../components/blocks/GridBlock.jsx';
 import TextBlock from '../components/blocks/TextBlock.jsx';
+import MapBlock from '../components/blocks/MapBlock.jsx';
+import VideoBlock from '../components/blocks/VideoBlock.jsx';
 
-const BLOCK_TYPES = ['hero', 'grid', 'text'];
+const BLOCK_TYPES = ['hero', 'grid', 'text', 'map', 'video', 'divider'];
 
 const DEFAULT_CONTENT = {
-  hero:  { asset_id: '', caption: '', overlay: true, height: 'full' },
-  grid:  { asset_ids: [], columns: 3, gap: 'sm', aspect: 'square' },
-  text:  { markdown: '', align: 'left', max_width: 'prose' },
+  hero:    { asset_id: '', caption: '', overlay: true, height: 'full' },
+  grid:    { asset_ids: [], columns: 3, gap: 'sm', aspect: 'square' },
+  text:    { markdown: '', align: 'left', max_width: 'prose' },
+  map:     { mode: 'manual', lat: null, lng: null, zoom: 12, label: '' },
+  video:   { asset_id: '', caption: '', autoplay: false, loop: false },
+  divider: { style: 'line', label: '' },
 };
 
 function renderBlock(block) {
@@ -22,6 +27,8 @@ function renderBlock(block) {
   if (block.type === 'hero') return <HeroBlock content={content} />;
   if (block.type === 'grid') return <GridBlock content={content} />;
   if (block.type === 'text') return <TextBlock content={content} />;
+  if (block.type === 'map') return <MapBlock content={content} />;
+  if (block.type === 'video') return <VideoBlock content={content} />;
   if (block.type === 'divider') {
     return (
       <div style={{ padding: '20px 24px', textAlign: 'center', color: '#aaa' }}>
@@ -43,14 +50,18 @@ export default function Editor() {
   const [saving, setSaving] = useState(false);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [syncCount, setSyncCount] = useState(0);
 
   useEffect(() => {
     Promise.all([
       api.get(`/api/stories/${id}`),
       api.get(`/api/stories/${id}/blocks`),
-    ]).then(([sRes, bRes]) => {
+      api.get(`/api/stories/${id}/sync/status`).catch(() => ({ data: { new_asset_count: 0 } })),
+    ]).then(([sRes, bRes, syncRes]) => {
       setStory(sRes.data);
       setBlocks(bRes.data);
+      setSyncCount(syncRes.data.new_asset_count || 0);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -97,6 +108,11 @@ export default function Editor() {
     setSelected(null);
   }
 
+  async function dismissSync() {
+    await api.post(`/api/stories/${id}/sync/dismiss`);
+    setSyncCount(0);
+  }
+
   const selectedBlock = blocks.find((b) => b.id === selected);
 
   if (loading) return <div style={styles.loading}>A carregar editor...</div>;
@@ -109,19 +125,19 @@ export default function Editor() {
         <button style={styles.btnBack} onClick={() => navigate('/dashboard')}>← Dashboard</button>
         <span style={styles.storyTitle}>{story.title}</span>
         <div style={styles.topbarRight}>
-          <button style={styles.btnImport} onClick={() => setShowImporter(true)} title="Importar álbum Immich">
-            ↓ Importar álbum
+          {syncCount > 0 && (
+            <button style={styles.btnSync} onClick={dismissSync} title="Dispensar notificações de sync">
+              📸 {syncCount} novas fotos ✕
+            </button>
+          )}
+          <button style={styles.btnImport} onClick={() => setShowImporter(true)}>↓ Importar álbum</button>
+          <button style={styles.btnSecondary} onClick={() => setShowPasswordModal(true)} title="Password da story">
+            🔒
           </button>
           {story.published && (
-            <a href={`/${story.slug}`} target="_blank" rel="noreferrer" style={styles.link}>
-              Ver público ↗
-            </a>
+            <a href={`/${story.slug}`} target="_blank" rel="noreferrer" style={styles.link}>Ver público ↗</a>
           )}
-          <button
-            style={story.published ? styles.btnDanger : styles.btnPrimary}
-            onClick={togglePublish}
-            disabled={saving}
-          >
+          <button style={story.published ? styles.btnDanger : styles.btnPrimary} onClick={togglePublish} disabled={saving}>
             {saving ? '...' : story.published ? 'Despublicar' : 'Publicar'}
           </button>
         </div>
@@ -203,12 +219,68 @@ export default function Editor() {
       </div>
 
       {showImporter && (
-        <AlbumImporter
+        <AlbumImporter storyId={id} onImported={handleImported} onClose={() => setShowImporter(false)} />
+      )}
+
+      {showPasswordModal && (
+        <PasswordModal
           storyId={id}
-          onImported={handleImported}
-          onClose={() => setShowImporter(false)}
+          hasPassword={!!story.password_hash}
+          onClose={() => setShowPasswordModal(false)}
+          onSaved={(has) => setStory((s) => ({ ...s, password_hash: has ? 'set' : null }))}
         />
       )}
+    </div>
+  );
+}
+
+function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
+  const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function setPass(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post(`/api/stories/${storyId}/password`, { password: password || null });
+      setMsg(password ? 'Password definida.' : 'Password removida.');
+      onSaved(!!password);
+      setTimeout(onClose, 1200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removePass() {
+    setSaving(true);
+    try {
+      await api.post(`/api/stories/${storyId}/password`, { password: null });
+      setMsg('Password removida.');
+      onSaved(false);
+      setTimeout(onClose, 1200);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ marginBottom: 16 }}>🔒 Password da story</h3>
+        {msg ? <p style={{ color: '#27ae60', textAlign: 'center' }}>{msg}</p> : (
+          <form onSubmit={setPass} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input style={{ padding: '9px 12px', border: '1px solid #ddd', borderRadius: 7, fontSize: 14 }}
+              type="password" placeholder={hasPassword ? 'Nova password (deixa vazio para manter)' : 'Definir password…'}
+              value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              {hasPassword && <button type="button" style={styles.btnDanger} onClick={removePass} disabled={saving}>Remover</button>}
+              <button style={styles.btnSecondary} type="button" onClick={onClose}>Cancelar</button>
+              <button style={styles.btnPrimary} type="submit" disabled={saving || !password}>Guardar</button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
@@ -223,6 +295,10 @@ const styles = {
   btnPrimary: { padding: '6px 14px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
   btnDanger: { padding: '6px 14px', background: '#c0392b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
   btnImport: { padding: '6px 12px', background: '#fff', color: '#444', border: '1px solid #ddd', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
+  btnSecondary: { padding: '6px 12px', background: '#fff', color: '#444', border: '1px solid #ddd', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
+  btnSync: { padding: '6px 12px', background: '#fff5e6', color: '#e67e22', border: '1px solid #f0c080', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modal: { background: '#fff', borderRadius: 12, padding: 28, width: 360, boxShadow: '0 8px 40px rgba(0,0,0,.15)' },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
   sidebar: { width: 186, background: '#fff', borderRight: '1px solid #e0e0e0', padding: 10, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', flexShrink: 0 },
   sidebarLabel: { fontSize: 10, color: '#999', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, padding: '0 4px' },
