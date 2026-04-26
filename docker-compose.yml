@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_PATH=/data/db.sqlite
+      - JWT_SECRET=${JWT_SECRET}
+      - IMMICH_URL=${IMMICH_URL}
+      - SYNC_INTERVAL_MINUTES=15
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+    volumes:
+      - story_data:/data
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=/api
+      - VITE_IMMICH_URL=${IMMICH_URL}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  story_data:
