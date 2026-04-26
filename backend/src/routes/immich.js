@@ -17,7 +17,9 @@ function immichClient(token) {
 router.get('/albums', requireAuth, async (req, res) => {
   if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
-    const { data } = await immichClient(req.user.immich_token).get('/albums');
+    const params = {};
+    if (req.query.shared !== undefined) params.shared = req.query.shared;
+    const { data } = await immichClient(req.user.immich_token).get('/albums', { params });
     res.json(data);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: 'Immich error' });
@@ -35,15 +37,23 @@ router.get('/albums/:albumId/assets', requireAuth, async (req, res) => {
   }
 });
 
+function thumbAuth(req, res, next) {
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
+  next();
+}
+
 // GET /api/immich/assets/:assetId/thumb
-router.get('/assets/:assetId/thumb', requireAuth, async (req, res) => {
-  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
+router.get('/assets/:assetId/thumb', thumbAuth, requireAuth, async (req, res) => {
+  const apiKey = req.user?.immich_token || process.env.IMMICH_API_KEY;
+  if (!apiKey) return res.status(400).json({ error: 'No Immich token' });
   try {
     const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
     const response = await axios.get(
       `${baseURL}/api/assets/${req.params.assetId}/thumbnail`,
       {
-        headers: { 'x-api-key': req.user.immich_token },
+        headers: { 'x-api-key': apiKey },
         responseType: 'stream',
         params: { size: req.query.size || 'thumbnail' },
       }

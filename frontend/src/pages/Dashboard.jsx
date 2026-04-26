@@ -35,44 +35,67 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
-        <span style={styles.logo}>Immich Story Builder</span>
-        <div style={styles.headerRight}>
-          <span style={styles.userEmail}>{user.email}</span>
-          <button style={styles.btnSecondary} onClick={logout}>Sair</button>
-          <button style={styles.btnPrimary} onClick={() => setShowModal(true)}>+ Nova Story</button>
+    <div style={s.page}>
+      <header style={s.header}>
+        <div style={s.headerLeft}>
+          <div style={s.logoMark}>M</div>
+          <span style={s.logoText}>Memoire</span>
+        </div>
+        <div style={s.headerRight}>
+          <span style={s.userEmail}>{user.email}</span>
+          <button className="btn btn-ghost" onClick={logout}>Sair</button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nova Story</button>
         </div>
       </header>
 
-      <main style={styles.main}>
-        {loading && <p style={styles.hint}>A carregar...</p>}
-        {!loading && stories.length === 0 && (
-          <div style={styles.empty}>
-            <p>Ainda não tens nenhuma story.</p>
-            <button style={styles.btnPrimary} onClick={() => setShowModal(true)}>Criar a primeira</button>
+      <main style={s.main}>
+        <div style={s.pageHeader}>
+          <h2 style={s.pageTitle}>As tuas stories</h2>
+          {!loading && stories.length > 0 && (
+            <span style={s.storyCount}>{stories.length} {stories.length === 1 ? 'story' : 'stories'}</span>
+          )}
+        </div>
+
+        {loading && (
+          <div style={s.loadingRow}>
+            {[1,2,3].map((i) => <div key={i} style={s.skeleton} />)}
           </div>
         )}
-        <div style={styles.grid}>
-          {stories.map((s) => (
-            <div key={s.id} style={styles.card} onClick={() => navigate(`/editor/${s.id}`)}>
-              <div style={styles.cardThumb}>
-                {s.cover_asset_id
-                  ? <img src={thumbUrl(s.cover_asset_id)} alt="" style={styles.cardImg} />
-                  : <div style={styles.cardPlaceholder} />}
-              </div>
-              <div style={styles.cardBody}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                  <p style={{ ...styles.cardTitle, flex: 1 }}>{s.title}</p>
-                  {s.pending_sync > 0 && (
-                    <span style={styles.syncBadge} title={`${s.pending_sync} novas fotos`}>
-                      {s.pending_sync} novas
-                    </span>
+
+        {!loading && stories.length === 0 && (
+          <div style={s.empty}>
+            <div style={s.emptyIcon}>📖</div>
+            <p style={s.emptyTitle}>Ainda sem stories</p>
+            <p style={s.emptyHint}>Cria a tua primeira story e transforma os teus álbuns Immich em timelines narrativas.</p>
+            <button className="btn btn-primary btn-lg" onClick={() => setShowModal(true)}>Criar primeira story</button>
+          </div>
+        )}
+
+        <div style={s.grid}>
+          {stories.map((story) => (
+            <div
+              key={story.id}
+              className="card"
+              style={s.card}
+              onClick={() => navigate(`/editor/${story.id}`)}
+            >
+              <div style={s.cardThumb}>
+                {story.cover_asset_id
+                  ? <img src={thumbUrl(story.cover_asset_id)} alt="" style={s.cardImg} />
+                  : <div style={s.cardPlaceholder}><span style={s.placeholderIcon}>🌄</span></div>
+                }
+                <div style={s.cardBadge}>
+                  <span style={{ ...s.badge, ...(story.published ? s.badgePublished : s.badgeDraft) }}>
+                    {story.published ? 'Publicado' : 'Rascunho'}
+                  </span>
+                  {story.pending_sync > 0 && (
+                    <span style={s.badgeSync}>{story.pending_sync} novas</span>
                   )}
                 </div>
-                <p style={styles.cardMeta}>
-                  {s.published ? '✓ Publicado' : '● Rascunho'} · /{s.slug}
-                </p>
+              </div>
+              <div style={s.cardBody}>
+                <p style={s.cardTitle}>{story.title}</p>
+                <p style={s.cardSlug}>/{story.slug}</p>
               </div>
             </div>
           ))}
@@ -80,16 +103,24 @@ export default function Dashboard() {
       </main>
 
       {showModal && (
-        <div style={styles.overlay} onClick={() => setShowModal(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginBottom: 16 }}>Nova Story</h2>
-            <form onSubmit={createStory} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input style={styles.input} placeholder="Título" value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)} autoFocus required />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" style={styles.btnSecondary} onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" style={styles.btnPrimary} disabled={creating}>
-                  {creating ? 'A criar...' : 'Criar'}
+        <div style={s.overlay} onClick={() => setShowModal(false)}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={s.modalTitle}>Nova Story</h2>
+            <p style={s.modalHint}>Dá um nome à tua story. Podes sempre mudar depois.</p>
+            <form onSubmit={createStory} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+              <input
+                className="field"
+                style={{ fontSize: 14, padding: '10px 13px' }}
+                placeholder="Ex: Viagem à Islândia 2024"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                autoFocus
+                required
+              />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={creating}>
+                  {creating ? 'A criar…' : 'Criar story'}
                 </button>
               </div>
             </form>
@@ -100,27 +131,93 @@ export default function Dashboard() {
   );
 }
 
-const styles = {
-  page: { minHeight: '100vh', background: '#f5f5f5' },
-  header: { background: '#fff', borderBottom: '1px solid #eee', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  logo: { fontWeight: 700, fontSize: 16 },
-  headerRight: { display: 'flex', gap: 12, alignItems: 'center' },
-  userEmail: { fontSize: 13, color: '#666' },
-  main: { maxWidth: 1100, margin: '0 auto', padding: 32 },
-  hint: { color: '#888', fontSize: 14 },
-  empty: { textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 },
-  card: { background: '#fff', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,.06)', transition: 'box-shadow .15s' },
-  cardThumb: { height: 160, background: '#e8e8e8' },
-  cardImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  cardPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #e0e0e0, #c8c8c8)' },
-  cardBody: { padding: '12px 16px' },
-  cardTitle: { fontWeight: 600, fontSize: 15 },
-  cardMeta: { fontSize: 12, color: '#888', marginTop: 4 },
-  btnPrimary: { padding: '8px 18px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  btnSecondary: { padding: '8px 18px', background: '#fff', color: '#333', border: '1px solid #ddd', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
-  syncBadge: { background: '#e67e22', color: '#fff', fontSize: 11, padding: '2px 7px', borderRadius: 10, fontWeight: 600, flexShrink: 0 },
-  input: { padding: '10px 14px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modal: { background: '#fff', borderRadius: 12, padding: 28, width: 360, boxShadow: '0 8px 40px rgba(0,0,0,.15)' },
+const s = {
+  page: { minHeight: '100vh', background: 'var(--bg)' },
+  header: {
+    background: 'var(--surface)',
+    borderBottom: '1px solid var(--border)',
+    padding: '0 32px',
+    height: 58,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
+  logoMark: {
+    width: 28,
+    height: 28,
+    background: 'var(--accent)',
+    color: '#fff',
+    borderRadius: 7,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  logoText: { fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em' },
+  headerRight: { display: 'flex', gap: 8, alignItems: 'center' },
+  userEmail: { fontSize: 13, color: 'var(--text-muted)', marginRight: 4 },
+  main: { maxWidth: 1120, margin: '0 auto', padding: '40px 32px' },
+  pageHeader: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 28 },
+  pageTitle: { fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' },
+  storyCount: { fontSize: 13, color: 'var(--text-faint)', fontWeight: 500 },
+  loadingRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 },
+  skeleton: { height: 260, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' },
+  empty: {
+    textAlign: 'center',
+    padding: '80px 0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'center',
+  },
+  emptyIcon: { fontSize: 40, marginBottom: 4 },
+  emptyTitle: { fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' },
+  emptyHint: { fontSize: 14, color: 'var(--text-muted)', maxWidth: 380, lineHeight: 1.6, marginBottom: 8 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 },
+  card: {
+    cursor: 'pointer',
+    overflow: 'hidden',
+    borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--border)',
+    background: 'var(--surface)',
+    boxShadow: 'var(--shadow-xs)',
+    transition: 'box-shadow 0.15s, border-color 0.15s, transform 0.15s',
+  },
+  cardThumb: { height: 168, background: '#f3f4f6', position: 'relative', overflow: 'hidden' },
+  cardImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.3s' },
+  cardPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)' },
+  placeholderIcon: { fontSize: 28, opacity: 0.4 },
+  cardBadge: { position: 'absolute', top: 10, left: 10, display: 'flex', gap: 5 },
+  badge: { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 },
+  badgePublished: { background: 'rgba(16,185,129,0.12)', color: '#059669' },
+  badgeDraft: { background: 'rgba(0,0,0,0.08)', color: '#6b7280' },
+  badgeSync: { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: 'rgba(234,88,12,0.12)', color: '#ea580c' },
+  cardBody: { padding: '14px 16px 16px' },
+  cardTitle: { fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', marginBottom: 3, color: 'var(--text)' },
+  cardSlug: { fontSize: 12, color: 'var(--text-faint)', fontFamily: 'monospace' },
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    backdropFilter: 'blur(2px)',
+  },
+  modal: {
+    background: 'var(--surface)',
+    borderRadius: 'var(--radius-lg)',
+    padding: '28px 32px',
+    width: 420,
+    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--border)',
+  },
+  modalTitle: { fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' },
+  modalHint: { fontSize: 13, color: 'var(--text-muted)', marginTop: 4 },
 };

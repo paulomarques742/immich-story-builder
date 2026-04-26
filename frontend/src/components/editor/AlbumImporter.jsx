@@ -7,13 +7,16 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
+  const [sharedOnly, setSharedOnly] = useState(true);
 
   useEffect(() => {
-    api.get('/api/immich/albums')
+    setLoading(true);
+    setError('');
+    api.get(`/api/immich/albums${sharedOnly ? '?shared=true' : ''}`)
       .then((r) => setAlbums(r.data))
       .catch(() => setError('Não foi possível carregar álbuns. Verifica a tua API key Immich.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [sharedOnly]);
 
   function toggle(albumId) {
     setSelected((prev) => {
@@ -53,6 +56,11 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
             Selecciona um ou mais álbuns. Serão criados automaticamente blocos hero, grids de 3 e divisores por mês.
           </p>
 
+          <label style={s.filterRow}>
+            <input type="checkbox" checked={sharedOnly} onChange={(e) => setSharedOnly(e.target.checked)} />
+            Só álbuns partilhados
+          </label>
+
           {loading && <p style={s.hint}>A carregar álbuns...</p>}
           {error && <p style={s.error}>{error}</p>}
 
@@ -76,10 +84,10 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
         </div>
 
         <div style={s.footer}>
-          <button style={s.btnSecondary} onClick={onClose} disabled={importing}>Cancelar</button>
-          <button style={s.btnPrimary} onClick={importAlbums} disabled={selected.size === 0 || importing}>
+          <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Cancelar</button>
+          <button className="btn btn-primary" onClick={importAlbums} disabled={selected.size === 0 || importing}>
             {importing
-              ? 'A importar...'
+              ? 'A importar…'
               : `Importar${selected.size > 0 ? ` (${selected.size} álbum${selected.size > 1 ? 'ns' : ''})` : ''}`
             }
           </button>
@@ -90,20 +98,62 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
 }
 
 const s = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 },
-  modal: { background: '#fff', borderRadius: 12, width: 480, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 64px rgba(0,0,0,.3)', overflow: 'hidden' },
-  header: { padding: '14px 20px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
-  title: { fontSize: 15, fontWeight: 700 },
-  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999' },
+  overlay: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,.5)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 300, backdropFilter: 'blur(2px)',
+  },
+  modal: {
+    background: 'var(--surface)',
+    borderRadius: 'var(--radius-lg)',
+    width: 480, maxHeight: '72vh',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--border)',
+    overflow: 'hidden',
+  },
+  header: {
+    padding: '16px 20px',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    flexShrink: 0,
+  },
+  title: { fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' },
+  closeBtn: {
+    background: 'none', border: 'none',
+    fontSize: 16, cursor: 'pointer',
+    color: 'var(--text-faint)',
+    width: 28, height: 28,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 6,
+  },
   body: { padding: '16px 20px', flex: 1, overflowY: 'auto' },
-  desc: { fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 },
-  hint: { color: '#aaa', fontSize: 13, textAlign: 'center' },
-  error: { color: '#c0392b', fontSize: 13, marginBottom: 8 },
-  list: { display: 'flex', flexDirection: 'column', gap: 2 },
-  item: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
-  albumName: { flex: 1 },
-  albumCount: { fontSize: 12, color: '#aaa' },
-  footer: { padding: '12px 20px', borderTop: '1px solid #eee', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 },
-  btnPrimary: { padding: '8px 18px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
-  btnSecondary: { padding: '8px 18px', background: '#fff', color: '#333', border: '1px solid #ddd', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
+  desc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 },
+  hint: { color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '20px 0' },
+  error: {
+    color: 'var(--danger)', fontSize: 13, marginBottom: 8,
+    padding: '8px 12px', background: '#fef2f2', borderRadius: 'var(--radius-sm)',
+  },
+  list: { display: 'flex', flexDirection: 'column', gap: 1 },
+  item: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '9px 10px', borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer', fontSize: 14,
+    transition: 'background 0.1s',
+  },
+  albumName: { flex: 1, fontWeight: 500, fontSize: 13 },
+  albumCount: { fontSize: 12, color: 'var(--text-faint)' },
+  filterRow: {
+    display: 'flex', alignItems: 'center', gap: 7,
+    fontSize: 12, color: 'var(--text-muted)',
+    marginBottom: 14, cursor: 'pointer',
+    fontWeight: 500,
+  },
+  footer: {
+    padding: '12px 20px',
+    borderTop: '1px solid var(--border)',
+    display: 'flex', gap: 8, justifyContent: 'flex-end',
+    flexShrink: 0,
+  },
 };

@@ -1,26 +1,120 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --border-strong: #c8ccd4;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --accent: #18181b;
+  --accent-hover: #27272a;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --warn-bg: #fffbeb;
+  --warn-text: #b45309;
+  --warn-border: #fde68a;
+  --radius-xs: 4px;
+  --radius-sm: 7px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 4px 8px rgba(0,0,0,0.05), 0 12px 36px rgba(0,0,0,0.07);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06);
 }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f5f5f5;
-  color: #1a1a1a;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font: inherit; }
+input, textarea, select { font: inherit; }
 
-button {
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  font: inherit;
+  transition: background 0.12s, box-shadow 0.12s, opacity 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
 }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
-input, textarea, select {
-  font: inherit;
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
+.btn-secondary:hover { background: #f9fafb; border-color: var(--border-strong); color: var(--text); }
+
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: var(--danger-hover); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 10px;
+}
+.btn-ghost:hover { background: #f3f4f6; color: var(--text); }
+
+.btn-warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border: 1px solid var(--warn-border);
+  font-size: 12px;
+}
+.btn-warn:hover { background: #fef3c7; }
+
+.btn-lg { padding: 10px 20px; font-size: 14px; }
+
+/* ── Inputs / Selects ─────────────────────────────────────────── */
+.field {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.field:focus { border-color: #9ca3af; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+.field::placeholder { color: var(--text-faint); }
+
+/* ── Block toolbar reveal on hover ──────────────────────────── */
+.block-wrap:hover > div:first-child { opacity: 1 !important; }
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.card:hover { box-shadow: var(--shadow-sm); border-color: #d1d5db; }

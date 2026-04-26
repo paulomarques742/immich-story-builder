@@ -13,6 +13,8 @@ import VideoBlock from '../components/blocks/VideoBlock.jsx';
 
 const BLOCK_TYPES = ['hero', 'grid', 'text', 'map', 'video', 'divider'];
 
+const BLOCK_ICONS = { hero: '🖼', grid: '▦', text: '¶', map: '📍', video: '▶', divider: '—' };
+
 const DEFAULT_CONTENT = {
   hero:    { asset_id: '', caption: '', overlay: true, height: 'full' },
   grid:    { asset_ids: [], columns: 3, gap: 'sm', aspect: 'square' },
@@ -31,13 +33,13 @@ function renderBlock(block) {
   if (block.type === 'video') return <VideoBlock content={content} />;
   if (block.type === 'divider') {
     return (
-      <div style={{ padding: '20px 24px', textAlign: 'center', color: '#aaa' }}>
-        <hr style={{ border: 'none', borderTop: '1px solid #ddd', marginBottom: 8 }} />
-        {content.label && <span style={{ fontSize: 13 }}>{content.label}</span>}
+      <div style={{ padding: '20px 24px', textAlign: 'center', color: 'var(--text-faint)' }}>
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', marginBottom: 8 }} />
+        {content.label && <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{content.label}</span>}
       </div>
     );
   }
-  return <div style={{ padding: 16, color: '#aaa', fontSize: 13 }}>Bloco: {block.type}</div>;
+  return <div style={{ padding: 16, color: 'var(--text-faint)', fontSize: 13 }}>Bloco: {block.type}</div>;
 }
 
 export default function Editor() {
@@ -115,38 +117,59 @@ export default function Editor() {
 
   const selectedBlock = blocks.find((b) => b.id === selected);
 
-  if (loading) return <div style={styles.loading}>A carregar editor...</div>;
-  if (!story) return <div style={styles.loading}>Story não encontrada.</div>;
+  if (loading) return <div style={s.loading}>A carregar editor…</div>;
+  if (!story) return <div style={s.loading}>Story não encontrada.</div>;
 
   return (
-    <div style={styles.shell}>
+    <div style={s.shell}>
       {/* Top toolbar */}
-      <header style={styles.topbar}>
-        <button style={styles.btnBack} onClick={() => navigate('/dashboard')}>← Dashboard</button>
-        <span style={styles.storyTitle}>{story.title}</span>
-        <div style={styles.topbarRight}>
+      <header style={s.topbar}>
+        <button className="btn btn-ghost" style={{ gap: 6, fontSize: 13 }} onClick={() => navigate('/dashboard')}>
+          ← Dashboard
+        </button>
+        <div style={s.topbarDivider} />
+        <span style={s.storyTitle}>{story.title}</span>
+        <div style={s.topbarRight}>
           {syncCount > 0 && (
-            <button style={styles.btnSync} onClick={dismissSync} title="Dispensar notificações de sync">
-              📸 {syncCount} novas fotos ✕
+            <button className="btn btn-warn" onClick={dismissSync} title="Dispensar notificações de sync">
+              📸 {syncCount} novas fotos  ✕
             </button>
           )}
-          <button style={styles.btnImport} onClick={() => setShowImporter(true)}>↓ Importar álbum</button>
-          <button style={styles.btnSecondary} onClick={() => setShowPasswordModal(true)} title="Password da story">
+          <button className="btn btn-secondary" onClick={() => setShowImporter(true)}>
+            ↓ Importar álbum
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowPasswordModal(true)}
+            title="Password da story"
+            style={{ padding: '7px 10px' }}
+          >
             🔒
           </button>
           {story.published && (
-            <a href={`/${story.slug}`} target="_blank" rel="noreferrer" style={styles.link}>Ver público ↗</a>
+            <a
+              href={`/${story.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              style={s.viewLink}
+            >
+              Ver público ↗
+            </a>
           )}
-          <button style={story.published ? styles.btnDanger : styles.btnPrimary} onClick={togglePublish} disabled={saving}>
-            {saving ? '...' : story.published ? 'Despublicar' : 'Publicar'}
+          <button
+            className={`btn ${story.published ? 'btn-danger' : 'btn-primary'}`}
+            onClick={togglePublish}
+            disabled={saving}
+          >
+            {saving ? '…' : story.published ? 'Despublicar' : 'Publicar'}
           </button>
         </div>
       </header>
 
-      <div style={styles.body}>
-        {/* Left sidebar — sortable block list */}
-        <aside style={styles.sidebar}>
-          <p style={styles.sidebarLabel}>Blocos ({blocks.length})</p>
+      <div style={s.body}>
+        {/* Left sidebar */}
+        <aside style={s.sidebar}>
+          <p style={s.sidebarLabel}>Blocos  <span style={s.blockCount}>{blocks.length}</span></p>
 
           <SortableBlockList
             blocks={blocks}
@@ -155,15 +178,16 @@ export default function Editor() {
             onReorder={handleReorder}
           />
 
-          <div style={{ position: 'relative', marginTop: 8 }}>
-            <button style={styles.btnAdd} onClick={() => setShowTypeMenu(!showTypeMenu)}>
+          <div style={{ position: 'relative', marginTop: 10 }}>
+            <button style={s.btnAdd} onClick={() => setShowTypeMenu(!showTypeMenu)}>
               + Adicionar bloco
             </button>
             {showTypeMenu && (
-              <div style={styles.typeMenu}>
+              <div style={s.typeMenu}>
                 {BLOCK_TYPES.map((t) => (
-                  <button key={t} style={styles.typeMenuItem} onClick={() => addBlock(t)}>
-                    {t}
+                  <button key={t} style={s.typeMenuItem} onClick={() => addBlock(t)}>
+                    <span style={s.typeMenuIcon}>{BLOCK_ICONS[t]}</span>
+                    <span style={{ textTransform: 'capitalize' }}>{t}</span>
                   </button>
                 ))}
               </div>
@@ -172,19 +196,23 @@ export default function Editor() {
         </aside>
 
         {/* Center — preview */}
-        <main style={styles.preview} onClick={() => setShowTypeMenu(false)}>
+        <main style={s.preview} onClick={() => setShowTypeMenu(false)}>
           {blocks.length === 0 && (
-            <div style={styles.emptyPreview}>
-              <p>Sem blocos ainda.</p>
-              <p style={{ fontSize: 13, marginTop: 8 }}>Usa "Importar álbum" ou "+ Adicionar bloco"</p>
+            <div style={s.emptyPreview}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📷</div>
+              <p style={{ fontWeight: 600, fontSize: 15 }}>Sem blocos ainda.</p>
+              <p style={{ fontSize: 13, marginTop: 6, color: 'var(--text-muted)' }}>
+                Usa "Importar álbum" ou "+ Adicionar bloco" para começar.
+              </p>
             </div>
           )}
           {blocks.map((b) => (
             <div
               key={b.id}
+              className="block-wrap"
               style={{
-                ...styles.blockWrapper,
-                ...(selected === b.id ? styles.blockWrapperActive : {}),
+                ...s.blockWrapper,
+                ...(selected === b.id ? s.blockWrapperActive : {}),
               }}
               onClick={(e) => { e.stopPropagation(); setSelected(b.id); }}
             >
@@ -205,7 +233,7 @@ export default function Editor() {
         </main>
 
         {/* Right — properties */}
-        <aside style={styles.props}>
+        <aside style={s.props}>
           {selectedBlock ? (
             <BlockEditor
               key={selectedBlock.id}
@@ -213,7 +241,10 @@ export default function Editor() {
               onChange={(content) => updateBlock(selectedBlock.id, content)}
             />
           ) : (
-            <p style={styles.hint}>Selecciona um bloco para editar as propriedades</p>
+            <div style={s.propsEmpty}>
+              <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.4 }}>⚙</div>
+              <p style={s.hint}>Selecciona um bloco para editar as propriedades</p>
+            </div>
           )}
         </aside>
       </div>
@@ -265,18 +296,29 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
   }
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginBottom: 16 }}>🔒 Password da story</h3>
-        {msg ? <p style={{ color: '#27ae60', textAlign: 'center' }}>{msg}</p> : (
+    <div style={s.overlay} onClick={onClose}>
+      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>Password da story</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+          Protege o acesso ao viewer público com uma password.
+        </p>
+        {msg ? (
+          <p style={{ color: '#059669', background: '#f0fdf4', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{msg}</p>
+        ) : (
           <form onSubmit={setPass} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input style={{ padding: '9px 12px', border: '1px solid #ddd', borderRadius: 7, fontSize: 14 }}
-              type="password" placeholder={hasPassword ? 'Nova password (deixa vazio para manter)' : 'Definir password…'}
-              value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              {hasPassword && <button type="button" style={styles.btnDanger} onClick={removePass} disabled={saving}>Remover</button>}
-              <button style={styles.btnSecondary} type="button" onClick={onClose}>Cancelar</button>
-              <button style={styles.btnPrimary} type="submit" disabled={saving || !password}>Guardar</button>
+            <input
+              className="field"
+              style={{ fontSize: 14, padding: '10px 13px' }}
+              type="password"
+              placeholder={hasPassword ? 'Nova password (deixa vazio para manter)' : 'Definir password…'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              {hasPassword && <button type="button" className="btn btn-danger" onClick={removePass} disabled={saving}>Remover</button>}
+              <button className="btn btn-secondary" type="button" onClick={onClose}>Cancelar</button>
+              <button className="btn btn-primary" type="submit" disabled={saving || !password}>Guardar</button>
             </div>
           </form>
         )}
@@ -285,31 +327,162 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
   );
 }
 
-const styles = {
-  shell: { display: 'flex', flexDirection: 'column', height: '100vh', background: '#f0f0f0' },
-  topbar: { height: 52, background: '#fff', borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12, flexShrink: 0 },
-  btnBack: { background: 'none', border: 'none', color: '#555', fontSize: 14, cursor: 'pointer', flexShrink: 0 },
-  storyTitle: { flex: 1, fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  topbarRight: { display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 },
-  link: { fontSize: 13, color: '#555', textDecoration: 'none' },
-  btnPrimary: { padding: '6px 14px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
-  btnDanger: { padding: '6px 14px', background: '#c0392b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
-  btnImport: { padding: '6px 12px', background: '#fff', color: '#444', border: '1px solid #ddd', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
-  btnSecondary: { padding: '6px 12px', background: '#fff', color: '#444', border: '1px solid #ddd', borderRadius: 7, fontSize: 13, cursor: 'pointer' },
-  btnSync: { padding: '6px 12px', background: '#fff5e6', color: '#e67e22', border: '1px solid #f0c080', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modal: { background: '#fff', borderRadius: 12, padding: 28, width: 360, boxShadow: '0 8px 40px rgba(0,0,0,.15)' },
+const s = {
+  shell: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' },
+  topbar: {
+    height: 54,
+    background: 'var(--surface)',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 12px 0 16px',
+    gap: 8,
+    flexShrink: 0,
+  },
+  topbarDivider: { width: 1, height: 20, background: 'var(--border)', margin: '0 4px' },
+  storyTitle: {
+    flex: 1,
+    fontWeight: 600,
+    fontSize: 14,
+    letterSpacing: '-0.01em',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--text)',
+  },
+  topbarRight: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 },
+  viewLink: {
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    textDecoration: 'none',
+    padding: '6px 10px',
+    borderRadius: 'var(--radius-sm)',
+    transition: 'background 0.12s, color 0.12s',
+  },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
-  sidebar: { width: 186, background: '#fff', borderRight: '1px solid #e0e0e0', padding: 10, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', flexShrink: 0 },
-  sidebarLabel: { fontSize: 10, color: '#999', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, padding: '0 4px' },
-  btnAdd: { width: '100%', padding: '7px 0', background: '#f5f5f5', border: '1px dashed #ccc', borderRadius: 7, fontSize: 13, color: '#444', cursor: 'pointer' },
-  typeMenu: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 8, zIndex: 50, marginTop: 4, overflow: 'hidden' },
-  typeMenuItem: { display: 'block', width: '100%', padding: '8px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: 13, cursor: 'pointer' },
-  preview: { flex: 1, overflowY: 'auto', padding: 24 },
-  emptyPreview: { textAlign: 'center', color: '#aaa', paddingTop: 80, fontSize: 14, lineHeight: 1.6 },
-  blockWrapper: { position: 'relative', marginBottom: 16, borderRadius: 8, overflow: 'hidden', border: '2px solid transparent', cursor: 'pointer' },
-  blockWrapperActive: { border: '2px solid #1a1a1a' },
-  props: { width: 300, background: '#fff', borderLeft: '1px solid #e0e0e0', padding: 16, overflowY: 'auto', flexShrink: 0 },
-  hint: { color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 32 },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 15, color: '#888' },
+  sidebar: {
+    width: 192,
+    background: 'var(--surface)',
+    borderRight: '1px solid var(--border)',
+    padding: '12px 8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    overflowY: 'auto',
+    flexShrink: 0,
+  },
+  sidebarLabel: {
+    fontSize: 10,
+    color: 'var(--text-faint)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    fontWeight: 600,
+    marginBottom: 6,
+    padding: '0 6px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  blockCount: {
+    background: '#f3f4f6',
+    color: 'var(--text-muted)',
+    padding: '1px 6px',
+    borderRadius: 10,
+    fontWeight: 600,
+    fontSize: 10,
+  },
+  btnAdd: {
+    width: '100%',
+    padding: '8px 0',
+    background: 'transparent',
+    border: '1px dashed var(--border-strong)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    fontWeight: 500,
+    transition: 'background 0.12s, border-color 0.12s',
+  },
+  typeMenu: {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    zIndex: 50,
+    overflow: 'hidden',
+    boxShadow: 'var(--shadow)',
+  },
+  typeMenuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    width: '100%',
+    padding: '9px 12px',
+    background: 'none',
+    border: 'none',
+    textAlign: 'left',
+    fontSize: 13,
+    cursor: 'pointer',
+    color: 'var(--text)',
+    transition: 'background 0.1s',
+  },
+  typeMenuIcon: { fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 },
+  preview: { flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#f5f5f4' },
+  emptyPreview: {
+    textAlign: 'center',
+    color: 'var(--text-muted)',
+    paddingTop: 80,
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+  blockWrapper: {
+    position: 'relative',
+    marginBottom: 12,
+    borderRadius: 'var(--radius)',
+    overflow: 'hidden',
+    border: '2px solid transparent',
+    cursor: 'pointer',
+    transition: 'border-color 0.1s',
+    background: 'var(--surface)',
+  },
+  blockWrapperActive: { border: '2px solid var(--accent)', boxShadow: '0 0 0 3px rgba(17,24,39,0.08)' },
+  props: {
+    width: 292,
+    background: 'var(--surface)',
+    borderLeft: '1px solid var(--border)',
+    padding: 16,
+    overflowY: 'auto',
+    flexShrink: 0,
+  },
+  propsEmpty: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    paddingBottom: 40,
+  },
+  hint: { color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', lineHeight: 1.6 },
+  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 15, color: 'var(--text-muted)' },
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.45)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    backdropFilter: 'blur(2px)',
+  },
+  modal: {
+    background: 'var(--surface)',
+    borderRadius: 'var(--radius-lg)',
+    padding: '28px 32px',
+    width: 400,
+    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--border)',
+  },
 };
