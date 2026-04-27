@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+*/node_modules
+
+# Git
+.git
+.gitignore
+
+# Env files (secrets nunca entram na imagem)
+.env
+.env.*
+!.env.example
+
+# Frontend build output (gerado no Stage 1)
+frontend/dist
+
+# Backend local data
+backend/data
+data
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode
+*.swp
+*.swo
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Design / docs (não necessários em runtime)
+*.md
+*.html
+memoire-*
+
+# CI config (não necessário em runtime)
+cloudbuild.yaml
