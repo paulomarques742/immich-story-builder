@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { thumbUrl } from '../../lib/immich.js';
+import { publicThumbUrl } from '../../lib/immich.js';
 
 const CloseIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -179,7 +179,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
           {assetId && (
             <img
               key={assetId}
-              src={thumbUrl(assetId, 'preview')}
+              src={publicThumbUrl(slug, assetId, 'preview')}
               alt={caption || ''}
               style={imgStyle}
             />

@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import { thumbUrl } from '../../lib/immich.js';
+import { publicThumbUrl } from '../../lib/immich.js';
 import { useState } from 'react';
 
 function parse(block) {
@@ -25,9 +25,11 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
   const matched = !searchTerm || blockMatchesSearch(block, content, searchTerm);
   const dimStyle = matched ? undefined : { opacity: 0.15, pointerEvents: 'none' };
 
+  const slug = story?.slug;
+
   switch (block.type) {
     case 'hero':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerHero content={content} story={story} /></div>;
+      return <div id={`block-${block.id}`} style={dimStyle}><ViewerHero content={content} story={story} slug={slug} /></div>;
     case 'divider':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerDivider content={content} /></div>;
     case 'text':
@@ -35,20 +37,20 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
     case 'grid':
       return (
         <div id={`block-${block.id}`} style={dimStyle}>
-          <ViewerGrid content={content} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} />
+          <ViewerGrid content={content} slug={slug} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} />
         </div>
       );
     case 'map':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerMap content={content} /></div>;
     case 'video':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} /></div>;
+      return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} /></div>;
     default:
       return null;
   }
 }
 
 // ── Hero ─────────────────────────────────────────────────────────
-function ViewerHero({ content, story }) {
+function ViewerHero({ content, story, slug }) {
   const { asset_id, caption, eyebrow, height = 'full' } = content;
   const h = height === 'full' ? '92vh' : height === 'half' ? '60vh' : '420px';
   const heroTitle = story?.title || caption || 'Memoire';
@@ -60,7 +62,7 @@ function ViewerHero({ content, story }) {
       {/* Background image */}
       {asset_id && (
         <img
-          src={thumbUrl(asset_id, 'preview')}
+          src={publicThumbUrl(slug, asset_id, 'preview')}
           alt=""
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -211,7 +213,7 @@ function ViewerText({ content }) {
 }
 
 // ── Grid (smart dispatch) ─────────────────────────────────────────
-function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
+function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry }) {
   const { asset_ids = [], columns = 3, aspect = 'square' } = content;
   if (asset_ids.length === 0) return null;
 
@@ -223,7 +225,7 @@ function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
 
   // Single photo → full-width block
   if (columns === 1 || asset_ids.length === 1) {
-    return <PhotoFull assetId={asset_ids[0]} caption={content.caption} onOpen={() => openPhoto(asset_ids[0])} />;
+    return <PhotoFull assetId={asset_ids[0]} slug={slug} caption={content.caption} onOpen={() => openPhoto(asset_ids[0])} />;
   }
 
   // Two columns + portrait → duo
@@ -232,7 +234,7 @@ function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
       <div className="mv-photo-duo" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem', margin: '2rem 0' }}>
         {asset_ids.map((id) => (
           <div key={id} className="mv-photo-duo-item" style={{ borderRadius: 5, overflow: 'hidden', boxShadow: '0 1px 8px rgba(26,24,20,0.08)', cursor: 'zoom-in' }} onClick={() => openPhoto(id)}>
-            <img src={thumbUrl(id, 'preview')} alt="" className="mv-photo-img" style={{ aspectRatio: '3/4', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={publicThumbUrl(slug, id, 'preview')} alt="" className="mv-photo-img" style={{ aspectRatio: '3/4', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
         ))}
       </div>
@@ -245,12 +247,12 @@ function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
     return (
       <div className="mv-photo-asym" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.625rem', margin: '2rem 0' }}>
         <div className="mv-photo-asym-main" style={{ borderRadius: 5, overflow: 'hidden', cursor: 'zoom-in' }} onClick={() => openPhoto(main)}>
-          <img src={thumbUrl(main, 'preview')} alt="" className="mv-photo-img" style={{ minHeight: 280, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={publicThumbUrl(slug, main, 'preview')} alt="" className="mv-photo-img" style={{ minHeight: 280, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
         <div className="mv-photo-asym-stack" style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
           {rest.slice(0, 2).map((id) => (
             <div key={id} className="mv-photo-asym-stack-item" style={{ flex: 1, borderRadius: 5, overflow: 'hidden', cursor: 'zoom-in' }} onClick={() => openPhoto(id)}>
-              <img src={thumbUrl(id, 'preview')} alt="" className="mv-photo-img" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={publicThumbUrl(slug, id, 'preview')} alt="" className="mv-photo-img" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             </div>
           ))}
         </div>
@@ -268,7 +270,7 @@ function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
     >
       {asset_ids.map((id) => (
         <div key={id} className="mv-photo-grid-item" style={{ borderRadius: 4, overflow: 'hidden', cursor: 'zoom-in' }} onClick={() => openPhoto(id)}>
-          <img src={thumbUrl(id, 'preview')} alt="" className="mv-photo-img" style={{ aspectRatio, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={publicThumbUrl(slug, id, 'preview')} alt="" className="mv-photo-img" style={{ aspectRatio, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
       ))}
     </div>
@@ -276,7 +278,7 @@ function ViewerGrid({ content, onPhotoOpen, photoRegistry }) {
 }
 
 // ── Photo Full-Width ──────────────────────────────────────────────
-function PhotoFull({ assetId, caption, onOpen }) {
+function PhotoFull({ assetId, slug, caption, onOpen }) {
   return (
     <div
       className="mv-photo-full"
@@ -288,7 +290,7 @@ function PhotoFull({ assetId, caption, onOpen }) {
       }}
     >
       <img
-        src={thumbUrl(assetId, 'preview')}
+        src={publicThumbUrl(slug, assetId, 'preview')}
         alt={caption || ''}
         className="mv-photo-img"
         style={{ aspectRatio: '16/9', width: '100%', objectFit: 'cover', display: 'block' }}
@@ -393,7 +395,7 @@ function ViewerMap({ content }) {
 }
 
 // ── Video ─────────────────────────────────────────────────────────
-function ViewerVideo({ content }) {
+function ViewerVideo({ content, slug }) {
   const { asset_id, caption, autoplay = false, loop = false } = content;
   const [playing, setPlaying] = useState(false);
 
@@ -429,7 +431,7 @@ function ViewerVideo({ content }) {
     >
       {/* Thumbnail */}
       <img
-        src={thumbUrl(asset_id, 'preview')}
+        src={publicThumbUrl(slug, asset_id, 'preview')}
         alt={caption || ''}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.75 }}
       />
