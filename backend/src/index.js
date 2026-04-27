@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -66,6 +67,47 @@ app.post('/api/public/:slug/unlock', (req, res) => {
 
   const token = jwt.sign({ story_id: story.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
   res.json({ token });
+});
+
+// GET /api/public/:slug/assets/:assetId/thumb  — public image proxy
+// Validates assetId belongs to the published story before proxying via server-side API key.
+// Immich URL and API key are never exposed to the browser.
+app.get('/api/public/:slug/assets/:assetId/thumb', async (req, res) => {
+  const { slug, assetId } = req.params;
+  const size = ['thumbnail', 'preview'].includes(req.query.size) ? req.query.size : 'thumbnail';
+
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(slug);
+  if (!story) return res.status(404).end();
+
+  // Check assetId is referenced by at least one block of this story
+  const blocks = db.prepare('SELECT content FROM blocks WHERE story_id = ?').all(story.id);
+  const allowed = blocks.some((block) => {
+    try {
+      const c = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
+      if (c.asset_id === assetId) return true;
+      if (Array.isArray(c.asset_ids) && c.asset_ids.includes(assetId)) return true;
+      return false;
+    } catch { return false; }
+  });
+
+  if (!allowed) return res.status(403).end();
+
+  const apiKey = process.env.IMMICH_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'No IMMICH_API_KEY configured on server' });
+
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const response = await axios.get(`${baseURL}/api/assets/${assetId}/thumbnail`, {
+      headers: { 'x-api-key': apiKey },
+      responseType: 'stream',
+      params: { size },
+    });
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    response.data.pipe(res);
+  } catch (err) {
+    res.status(err.response?.status || 502).end();
+  }
 });
 
 // GET /api/public/:slug/comments/:assetId
