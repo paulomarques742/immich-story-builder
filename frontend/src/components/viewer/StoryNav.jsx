@@ -1,15 +1,17 @@
+import { useEffect, useState } from 'react';
+
+function parse(block) {
+  try { return typeof block.content === 'string' ? JSON.parse(block.content) : block.content; }
+  catch { return {}; }
+}
+
 export default function StoryNav({ blocks, visible }) {
-  // Build nav from divider blocks (and text blocks starting with a heading)
+  const [activeId, setActiveId] = useState(null);
+
   const sections = blocks
     .filter((b) => {
-      if (b.type === 'divider') {
-        const c = parse(b);
-        return !!c.label;
-      }
-      if (b.type === 'text') {
-        const c = parse(b);
-        return c.markdown?.trimStart().startsWith('#');
-      }
+      if (b.type === 'divider') { const c = parse(b); return !!c.label; }
+      if (b.type === 'text') { const c = parse(b); return c.markdown?.trimStart().startsWith('#'); }
       return false;
     })
     .map((b) => {
@@ -20,6 +22,30 @@ export default function StoryNav({ blocks, visible }) {
       return { id: b.id, label };
     });
 
+  useEffect(() => {
+    if (!visible || sections.length === 0) return;
+
+    const observers = [];
+    const visibleRatios = {};
+
+    sections.forEach(({ id }) => {
+      const el = document.getElementById(`block-${id}`);
+      if (!el) return;
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          visibleRatios[id] = entry.intersectionRatio;
+          const best = Object.entries(visibleRatios).sort((a, b) => b[1] - a[1])[0];
+          if (best && best[1] > 0) setActiveId(Number(best[0]));
+        },
+        { threshold: [0, 0.2, 0.4, 0.6, 0.8, 1.0] }
+      );
+      obs.observe(el);
+      observers.push(obs);
+    });
+
+    return () => observers.forEach((o) => o.disconnect());
+  }, [blocks, visible]);
+
   if (!visible || sections.length === 0) return null;
 
   function scrollTo(id) {
@@ -27,24 +53,61 @@ export default function StoryNav({ blocks, visible }) {
   }
 
   return (
-    <nav style={s.nav}>
-      <p style={s.label}>Secções</p>
-      {sections.map((sec) => (
-        <button key={sec.id} style={s.item} onClick={() => scrollTo(sec.id)}>
-          {sec.label}
-        </button>
-      ))}
+    <nav className="mv-side-nav" style={{
+      position: 'fixed', right: '2rem', top: '50%',
+      transform: 'translateY(-50%)', zIndex: 50,
+      display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end',
+    }}>
+      {sections.map((sec) => {
+        const isActive = activeId === sec.id;
+        return (
+          <a
+            key={sec.id}
+            onClick={(e) => { e.preventDefault(); scrollTo(sec.id); }}
+            href={`#block-${sec.id}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'pointer', textDecoration: 'none',
+            }}
+            className={`mv-nav-item${isActive ? ' mv-nav-active' : ''}`}
+            onMouseEnter={(e) => {
+              const label = e.currentTarget.querySelector('.mv-nav-label');
+              const dot = e.currentTarget.querySelector('.mv-nav-dot');
+              if (label) { label.style.opacity = '1'; label.style.transform = 'translateX(0)'; }
+              if (dot && !isActive) { dot.style.width = '7px'; dot.style.height = '7px'; dot.style.background = 'var(--ink)'; }
+            }}
+            onMouseLeave={(e) => {
+              const label = e.currentTarget.querySelector('.mv-nav-label');
+              const dot = e.currentTarget.querySelector('.mv-nav-dot');
+              if (label && !isActive) { label.style.opacity = '0'; label.style.transform = 'translateX(4px)'; }
+              if (dot && !isActive) { dot.style.width = '5px'; dot.style.height = '5px'; dot.style.background = 'var(--ink-faint)'; }
+            }}
+          >
+            <span
+              className="mv-nav-label"
+              style={{
+                fontSize: '0.7rem', fontWeight: 400, color: 'var(--ink-muted)',
+                opacity: isActive ? 1 : 0,
+                transform: isActive ? 'translateX(0)' : 'translateX(4px)',
+                transition: 'all 220ms var(--ease-out)',
+                whiteSpace: 'nowrap', pointerEvents: 'none',
+              }}
+            >{sec.label}</span>
+            <span
+              className="mv-nav-dot"
+              style={{
+                width: isActive ? 7 : 5,
+                height: isActive ? 7 : 5,
+                borderRadius: '50%',
+                background: isActive ? 'var(--mv-accent)' : 'var(--ink-faint)',
+                transition: 'all 220ms var(--ease-out)',
+                flexShrink: 0,
+                display: 'block',
+              }}
+            />
+          </a>
+        );
+      })}
     </nav>
   );
 }
-
-function parse(block) {
-  try { return typeof block.content === 'string' ? JSON.parse(block.content) : block.content; }
-  catch { return {}; }
-}
-
-const s = {
-  nav: { position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)', background: '#fff', border: '1px solid #eee', borderRadius: '0 10px 10px 0', boxShadow: '2px 2px 12px rgba(0,0,0,.07)', padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 2, zIndex: 100, maxWidth: 180, maxHeight: '70vh', overflowY: 'auto' },
-  label: { fontSize: 10, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1, padding: '0 14px 6px', borderBottom: '1px solid #f0f0f0', marginBottom: 4 },
-  item: { background: 'none', border: 'none', textAlign: 'left', padding: '5px 14px', fontSize: 12, color: '#555', cursor: 'pointer', lineHeight: 1.4, wordBreak: 'break-word' },
-};
