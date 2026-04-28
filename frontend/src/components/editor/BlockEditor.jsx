@@ -16,12 +16,20 @@ export default function BlockEditor({ block, onChange }) {
     onChange(next);
   }
 
+  function updateMany(patch) {
+    const next = { ...content, ...patch };
+    setContent(next);
+    onChange(next);
+  }
+
   if (block.type === 'hero') return <HeroEditor content={content} update={update} />;
-  if (block.type === 'grid') return <GridEditor content={content} update={update} />;
+  if (block.type === 'grid') return <GridEditor content={content} update={update} updateMany={updateMany} />;
   if (block.type === 'text') return <TextEditor content={content} update={update} />;
+  if (block.type === 'quote') return <QuoteEditor content={content} update={update} />;
   if (block.type === 'map') return <MapEditor content={content} update={update} onChange={onChange} setContent={setContent} />;
   if (block.type === 'video') return <VideoEditor content={content} update={update} />;
   if (block.type === 'divider') return <DividerEditor content={content} update={update} />;
+  if (block.type === 'spacer') return <SpacerEditor content={content} update={update} />;
   return <p style={s.hint}>Sem editor para tipo "{block.type}"</p>;
 }
 
@@ -94,16 +102,55 @@ function HeroEditor({ content, update }) {
 }
 
 /* ── Grid editor ─────────────────────────────────────────────── */
-function GridEditor({ content, update }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+const GRID_LAYOUTS = [
+  { key: 'single',     label: 'Único',        icon: '▬',    cols: 1, aspect: 'landscape', hint: null },
+  { key: 'duo',        label: 'Duo',          icon: '▮▮',   cols: 2, aspect: 'portrait',  hint: '2+ fotos' },
+  { key: 'asymmetric', label: 'Assimétrico',  icon: '▬▪',   cols: 2, aspect: 'landscape', hint: '3+ fotos' },
+  { key: 'grid3',      label: '3 colunas',    icon: '▪▪▪',  cols: 3, aspect: 'square',    hint: null },
+  { key: 'grid4',      label: '4 colunas',    icon: '▪▪▪▪', cols: 4, aspect: 'square',    hint: null },
+];
 
-  function handlePickerSelect(ids) {
-    update('asset_ids', ids);
-  }
+function getLayoutKey(columns, aspect) {
+  if (columns === 1) return 'single';
+  if (columns === 2 && aspect === 'portrait') return 'duo';
+  if (columns === 2) return 'asymmetric';
+  if (columns === 3) return 'grid3';
+  return 'grid4';
+}
+
+function GridEditor({ content, update, updateMany }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const activeLayout = getLayoutKey(content.columns || 3, content.aspect || 'square');
 
   return (
     <div style={s.form}>
       <h3 style={s.heading}>Grid</h3>
+
+      <Field label="Layout">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
+          {GRID_LAYOUTS.map((l) => (
+            <button
+              key={l.key}
+              title={l.hint ? `${l.label} (${l.hint})` : l.label}
+              onClick={() => updateMany({ columns: l.cols, aspect: l.aspect })}
+              style={{
+                padding: '6px 2px',
+                border: `1px solid ${activeLayout === l.key ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-sm)',
+                background: activeLayout === l.key ? 'var(--accent-pale, #f3f0ff)' : 'var(--surface)',
+                cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              }}
+            >
+              <span style={{ fontSize: 11, letterSpacing: '0.04em', color: activeLayout === l.key ? 'var(--accent)' : 'var(--text-muted)' }}>{l.icon}</span>
+              <span style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1 }}>{l.label}</span>
+            </button>
+          ))}
+        </div>
+        {activeLayout === 'asymmetric' && (
+          <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>Requer 3 ou mais fotos para activar o layout assimétrico</p>
+        )}
+      </Field>
 
       <Field label={`Imagens (${(content.asset_ids || []).length})`}>
         <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>
@@ -120,17 +167,11 @@ function GridEditor({ content, update }) {
           </div>
         )}
         <textarea
-          style={{ ...s.input, height: 80, resize: 'vertical', fontFamily: 'monospace', fontSize: 11, marginTop: 8 }}
+          style={{ ...s.input, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11, marginTop: 8 }}
           value={(content.asset_ids || []).join('\n')}
           onChange={(e) => update('asset_ids', e.target.value.split('\n').map((l) => l.trim()).filter(Boolean))}
           placeholder="Ou cola asset IDs (um por linha)"
         />
-      </Field>
-
-      <Field label="Colunas">
-        <select style={s.input} value={content.columns || 3} onChange={(e) => update('columns', Number(e.target.value))}>
-          {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
       </Field>
 
       <Field label="Gap">
@@ -141,19 +182,11 @@ function GridEditor({ content, update }) {
         </select>
       </Field>
 
-      <Field label="Proporção">
-        <select style={s.input} value={content.aspect || 'square'} onChange={(e) => update('aspect', e.target.value)}>
-          <option value="square">Quadrado</option>
-          <option value="landscape">Paisagem</option>
-          <option value="portrait">Retrato</option>
-        </select>
-      </Field>
-
       {pickerOpen && (
         <AssetPicker
           multiple={true}
           initialSelected={content.asset_ids || []}
-          onSelect={handlePickerSelect}
+          onSelect={(ids) => update('asset_ids', ids)}
           onClose={() => setPickerOpen(false)}
         />
       )}
@@ -306,6 +339,47 @@ function VideoEditor({ content, update }) {
         <AssetPicker multiple={false} initialSelected={content.asset_id ? [content.asset_id] : []}
           onSelect={(id) => update('asset_id', id)} onClose={() => setPickerOpen(false)} />
       )}
+    </div>
+  );
+}
+
+/* ── Quote editor ─────────────────────────────────────────────── */
+function QuoteEditor({ content, update }) {
+  return (
+    <div style={s.form}>
+      <h3 style={s.heading}>Citação</h3>
+      <Field label="Texto da citação">
+        <textarea
+          style={{ ...s.input, height: 100, resize: 'vertical' }}
+          value={content.quote || ''}
+          onChange={(e) => update('quote', e.target.value)}
+          placeholder="Uma frase memorável…"
+        />
+      </Field>
+      <Field label="Autor (opcional)">
+        <input
+          style={s.input}
+          value={content.author || ''}
+          onChange={(e) => update('author', e.target.value)}
+          placeholder="Nome do autor"
+        />
+      </Field>
+    </div>
+  );
+}
+
+/* ── Spacer editor ────────────────────────────────────────────── */
+function SpacerEditor({ content, update }) {
+  return (
+    <div style={s.form}>
+      <h3 style={s.heading}>Espaço</h3>
+      <Field label="Altura">
+        <select style={s.input} value={content.height || 'md'} onChange={(e) => update('height', e.target.value)}>
+          <option value="sm">Pequeno (40px)</option>
+          <option value="md">Médio (80px)</option>
+          <option value="lg">Grande (140px)</option>
+        </select>
+      </Field>
     </div>
   );
 }

@@ -10,11 +10,9 @@ module.exports = function startSyncJob(db) {
 
   cron.schedule(expr, async () => {
     const stories = db.prepare(`
-      SELECT s.*, u.immich_token
+      SELECT s.*
       FROM stories s
-      JOIN users u ON s.created_by = u.id
-      WHERE u.immich_token IS NOT NULL
-        AND s.sync_mode != 'manual'
+      WHERE s.sync_mode != 'manual'
         AND json_array_length(s.immich_album_ids) > 0
     `).all();
 
@@ -24,7 +22,7 @@ module.exports = function startSyncJob(db) {
         if (!albumIds.length) continue;
 
         const base = process.env.IMMICH_URL?.replace(/\/$/, '');
-        const headers = { 'x-api-key': story.immich_token };
+        const headers = { 'x-api-key': process.env.IMMICH_API_KEY };
         const newEntries = [];
 
         for (const albumId of albumIds) {

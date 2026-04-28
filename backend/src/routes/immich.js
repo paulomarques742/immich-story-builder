@@ -1,25 +1,23 @@
 const express = require('express');
 const axios = require('axios');
-const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-function immichClient(token) {
+function immichClient() {
   const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
   return axios.create({
     baseURL: `${baseURL}/api`,
-    headers: { 'x-api-key': token },
+    headers: { 'x-api-key': process.env.IMMICH_API_KEY },
   });
 }
 
 // GET /api/immich/albums
 router.get('/albums', requireAuth, async (req, res) => {
-  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
     const params = {};
     if (req.query.shared !== undefined) params.shared = req.query.shared;
-    const { data } = await immichClient(req.user.immich_token).get('/albums', { params });
+    const { data } = await immichClient().get('/albums', { params });
     res.json(data);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: 'Immich error' });
@@ -28,9 +26,8 @@ router.get('/albums', requireAuth, async (req, res) => {
 
 // GET /api/immich/albums/:albumId/assets
 router.get('/albums/:albumId/assets', requireAuth, async (req, res) => {
-  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
-    const { data } = await immichClient(req.user.immich_token).get(`/albums/${req.params.albumId}`);
+    const { data } = await immichClient().get(`/albums/${req.params.albumId}`);
     res.json(data.assets || []);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: 'Immich error' });
@@ -46,14 +43,12 @@ function thumbAuth(req, res, next) {
 
 // GET /api/immich/assets/:assetId/thumb
 router.get('/assets/:assetId/thumb', thumbAuth, requireAuth, async (req, res) => {
-  const apiKey = req.user?.immich_token || process.env.IMMICH_API_KEY;
-  if (!apiKey) return res.status(400).json({ error: 'No Immich token' });
   try {
     const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
     const response = await axios.get(
       `${baseURL}/api/assets/${req.params.assetId}/thumbnail`,
       {
-        headers: { 'x-api-key': apiKey },
+        headers: { 'x-api-key': process.env.IMMICH_API_KEY },
         responseType: 'stream',
         params: { size: req.query.size || 'thumbnail' },
       }
@@ -67,10 +62,9 @@ router.get('/assets/:assetId/thumb', thumbAuth, requireAuth, async (req, res) =>
 
 // GET /api/immich/assets/:assetId/original  (supports Range for video seeking)
 router.get('/assets/:assetId/original', requireAuth, async (req, res) => {
-  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
     const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
-    const headers = { 'x-api-key': req.user.immich_token };
+    const headers = { 'x-api-key': process.env.IMMICH_API_KEY };
     if (req.headers.range) headers['Range'] = req.headers.range;
 
     const response = await axios.get(
@@ -91,9 +85,8 @@ router.get('/assets/:assetId/original', requireAuth, async (req, res) => {
 
 // GET /api/immich/assets/:assetId/exif  — GPS + EXIF metadata
 router.get('/assets/:assetId/exif', requireAuth, async (req, res) => {
-  if (!req.user.immich_token) return res.status(400).json({ error: 'No Immich token for this user' });
   try {
-    const { data } = await immichClient(req.user.immich_token).get(`/assets/${req.params.assetId}`);
+    const { data } = await immichClient().get(`/assets/${req.params.assetId}`);
     const exif = data.exifInfo || {};
     res.json({
       lat: exif.latitude ?? null,

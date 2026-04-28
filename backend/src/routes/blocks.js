@@ -6,7 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router({ mergeParams: true });
 
-const VALID_TYPES = ['hero', 'grid', 'text', 'map', 'video', 'divider'];
+const VALID_TYPES = ['hero', 'grid', 'text', 'map', 'video', 'divider', 'quote', 'spacer'];
 
 function storyGuard(req, res) {
   const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(req.params.storyId);
@@ -61,14 +61,10 @@ router.post('/import-album', requireAuth, async (req, res) => {
   if (!Array.isArray(album_ids) || album_ids.length === 0) {
     return res.status(400).json({ error: 'album_ids must be a non-empty array' });
   }
-  if (!req.user.immich_token) {
-    return res.status(400).json({ error: 'No Immich token for this user. Log in via Immich API key.' });
-  }
-
   const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
   const immich = axios.create({
     baseURL: `${baseURL}/api`,
-    headers: { 'x-api-key': req.user.immich_token },
+    headers: { 'x-api-key': process.env.IMMICH_API_KEY },
   });
 
   try {

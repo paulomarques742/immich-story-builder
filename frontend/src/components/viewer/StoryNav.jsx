@@ -10,14 +10,14 @@ export default function StoryNav({ blocks, visible }) {
 
   const sections = blocks
     .filter((b) => {
-      if (b.type === 'divider') { const c = parse(b); return !!c.label; }
+      if (b.type === 'divider') return true;
       if (b.type === 'text') { const c = parse(b); return c.markdown?.trimStart().startsWith('#'); }
       return false;
     })
     .map((b) => {
       const c = parse(b);
       let label = '';
-      if (b.type === 'divider') label = c.label;
+      if (b.type === 'divider') label = c.label || '—';
       if (b.type === 'text') label = c.markdown.match(/^#+\s*(.+)/m)?.[1] || '';
       return { id: b.id, label };
     });

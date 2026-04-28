@@ -1,46 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
+import { thumbUrl } from '../lib/immich.js';
 import SortableBlockList from '../components/editor/SortableBlockList.jsx';
 import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
 import AlbumImporter from '../components/editor/AlbumImporter.jsx';
-import HeroBlock from '../components/blocks/HeroBlock.jsx';
-import GridBlock from '../components/blocks/GridBlock.jsx';
-import TextBlock from '../components/blocks/TextBlock.jsx';
-import MapBlock from '../components/blocks/MapBlock.jsx';
-import VideoBlock from '../components/blocks/VideoBlock.jsx';
+import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 
-const BLOCK_TYPES = ['hero', 'grid', 'text', 'map', 'video', 'divider'];
+const BLOCK_TYPES = ['hero', 'grid', 'text', 'quote', 'map', 'video', 'divider', 'spacer'];
 
-const BLOCK_ICONS = { hero: '🖼', grid: '▦', text: '¶', map: '📍', video: '▶', divider: '—' };
+const BLOCK_ICONS = { hero: '🖼', grid: '▦', text: '¶', quote: '"', map: '📍', video: '▶', divider: '—', spacer: '↕' };
 
 const DEFAULT_CONTENT = {
   hero:    { asset_id: '', caption: '', overlay: true, height: 'full' },
   grid:    { asset_ids: [], columns: 3, gap: 'sm', aspect: 'square' },
   text:    { markdown: '', align: 'left', max_width: 'prose' },
+  quote:   { quote: '', author: '' },
   map:     { mode: 'manual', lat: null, lng: null, zoom: 12, label: '' },
   video:   { asset_id: '', caption: '', autoplay: false, loop: false },
   divider: { style: 'line', label: '' },
+  spacer:  { height: 'md' },
 };
 
-function renderBlock(block) {
-  const content = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
-  if (block.type === 'hero') return <HeroBlock content={content} />;
-  if (block.type === 'grid') return <GridBlock content={content} />;
-  if (block.type === 'text') return <TextBlock content={content} />;
-  if (block.type === 'map') return <MapBlock content={content} />;
-  if (block.type === 'video') return <VideoBlock content={content} />;
-  if (block.type === 'divider') {
-    return (
-      <div style={{ padding: '20px 24px', textAlign: 'center', color: 'var(--text-faint)' }}>
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', marginBottom: 8 }} />
-        {content.label && <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{content.label}</span>}
-      </div>
-    );
-  }
-  return <div style={{ padding: 16, color: 'var(--text-faint)', fontSize: 13 }}>Bloco: {block.type}</div>;
-}
+const editorThumbUrl = (_slug, assetId, size) => thumbUrl(assetId, size);
 
 export default function Editor() {
   const { id } = useParams();
@@ -206,30 +189,38 @@ export default function Editor() {
               </p>
             </div>
           )}
-          {blocks.map((b) => (
-            <div
-              key={b.id}
-              className="block-wrap"
-              style={{
-                ...s.blockWrapper,
-                ...(selected === b.id ? s.blockWrapperActive : {}),
-              }}
-              onClick={(e) => { e.stopPropagation(); setSelected(b.id); }}
-            >
-              <BlockToolbar
-                onMoveUp={() => {
-                  const idx = blocks.findIndex((bl) => bl.id === b.id);
-                  if (idx > 0) handleReorder([...blocks.slice(0, idx - 1), blocks[idx], blocks[idx - 1], ...blocks.slice(idx + 1)]);
+          {blocks.map((b) => {
+            const isHero = b.type === 'hero';
+            const wrap = (
+              <div
+                key={b.id}
+                className="block-wrap"
+                style={{
+                  ...s.blockWrapper,
+                  ...(selected === b.id ? s.blockWrapperActive : {}),
                 }}
-                onMoveDown={() => {
-                  const idx = blocks.findIndex((bl) => bl.id === b.id);
-                  if (idx < blocks.length - 1) handleReorder([...blocks.slice(0, idx), blocks[idx + 1], blocks[idx], ...blocks.slice(idx + 2)]);
-                }}
-                onDelete={() => deleteBlock(b.id)}
-              />
-              {renderBlock(b)}
-            </div>
-          ))}
+                onClick={(e) => { e.stopPropagation(); setSelected(b.id); }}
+              >
+                <BlockToolbar
+                  onMoveUp={() => {
+                    const idx = blocks.findIndex((bl) => bl.id === b.id);
+                    if (idx > 0) handleReorder([...blocks.slice(0, idx - 1), blocks[idx], blocks[idx - 1], ...blocks.slice(idx + 1)]);
+                  }}
+                  onMoveDown={() => {
+                    const idx = blocks.findIndex((bl) => bl.id === b.id);
+                    if (idx < blocks.length - 1) handleReorder([...blocks.slice(0, idx), blocks[idx + 1], blocks[idx], ...blocks.slice(idx + 2)]);
+                  }}
+                  onDelete={() => deleteBlock(b.id)}
+                />
+                <ViewerBlock block={b} story={story} thumbUrlFn={editorThumbUrl} />
+              </div>
+            );
+            return isHero ? wrap : (
+              <div key={b.id} style={s.storyCanvas}>
+                {wrap}
+              </div>
+            );
+          })}
         </main>
 
         {/* Right — properties */}
@@ -430,7 +421,12 @@ const s = {
     transition: 'background 0.1s',
   },
   typeMenuIcon: { fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 },
-  preview: { flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#f5f5f4' },
+  preview: { flex: 1, overflowY: 'auto', background: 'var(--paper, #faf8f5)', paddingBottom: '6rem' },
+  storyCanvas: {
+    maxWidth: 900,
+    margin: '0 auto',
+    padding: '0 2rem',
+  },
   emptyPreview: {
     textAlign: 'center',
     color: 'var(--text-muted)',
@@ -440,15 +436,12 @@ const s = {
   },
   blockWrapper: {
     position: 'relative',
-    marginBottom: 12,
-    borderRadius: 'var(--radius)',
-    overflow: 'hidden',
-    border: '2px solid transparent',
+    outline: '2px solid transparent',
+    outlineOffset: 2,
     cursor: 'pointer',
-    transition: 'border-color 0.1s',
-    background: 'var(--surface)',
+    transition: 'outline-color 0.1s',
   },
-  blockWrapperActive: { border: '2px solid var(--accent)', boxShadow: '0 0 0 3px rgba(17,24,39,0.08)' },
+  blockWrapperActive: { outline: '2px solid var(--accent)', outlineOffset: 2 },
   props: {
     width: 292,
     background: 'var(--surface)',
