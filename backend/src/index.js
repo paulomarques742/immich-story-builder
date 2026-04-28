@@ -30,10 +30,18 @@ if (!process.env.IMMICH_API_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const allowedOrigin = process.env.FRONTEND_URL || process.env.VITE_API_URL || 'http://localhost:5173';
+// Allowed origins: PUBLIC_URL + FRONTEND_URL + localhost dev, all comma-separable
+const rawOrigins = [
+  process.env.PUBLIC_URL,
+  process.env.FRONTEND_URL,
+  process.env.VITE_API_URL,
+  'http://localhost:5173',
+].flatMap((s) => (s ? s.split(',').map((o) => o.trim().replace(/\/$/, '')) : []));
+const allowedOrigins = [...new Set(rawOrigins)];
+
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    if (!origin || origin === allowedOrigin) return callback(null, true);
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
