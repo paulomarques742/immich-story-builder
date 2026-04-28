@@ -43,6 +43,15 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS likes (
+  id          TEXT PRIMARY KEY,
+  story_id    TEXT REFERENCES stories(id) ON DELETE CASCADE,
+  asset_id    TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(story_id, asset_id, fingerprint)
+);
+
 CREATE TABLE IF NOT EXISTS story_assets (
   story_id    TEXT REFERENCES stories(id) ON DELETE CASCADE,
   asset_id    TEXT NOT NULL,

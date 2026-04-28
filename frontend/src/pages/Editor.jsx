@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
 import { thumbUrl } from '../lib/immich.js';
@@ -6,14 +6,16 @@ import SortableBlockList from '../components/editor/SortableBlockList.jsx';
 import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
 import AlbumImporter from '../components/editor/AlbumImporter.jsx';
+import ThemePicker from '../components/editor/ThemePicker.jsx';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
+import { buildThemeVars, getTheme } from '../lib/themes.js';
 
 const BLOCK_TYPES = ['hero', 'grid', 'text', 'quote', 'map', 'video', 'divider', 'spacer'];
 
 const BLOCK_ICONS = { hero: '🖼', grid: '▦', text: '¶', quote: '"', map: '📍', video: '▶', divider: '—', spacer: '↕' };
 
 const DEFAULT_CONTENT = {
-  hero:    { asset_id: '', caption: '', overlay: true, height: 'full' },
+  hero:    { asset_id: '', caption: '', overlay: true, height: 'full', title: '' },
   grid:    { asset_ids: [], columns: 3, gap: 'sm', aspect: 'square' },
   text:    { markdown: '', align: 'left', max_width: 'prose' },
   quote:   { quote: '', author: '' },
@@ -25,6 +27,85 @@ const DEFAULT_CONTENT = {
 
 const editorThumbUrl = (_slug, assetId, size) => thumbUrl(assetId, size);
 
+function BlockInsertZone({ afterIdx, insertMenuIdx, setInsertMenuIdx, onAdd }) {
+  const isOpen = insertMenuIdx === afterIdx;
+  return (
+    <div className="block-insert-zone" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="insert-btn"
+        style={iz.btn}
+        onClick={() => setInsertMenuIdx(isOpen ? null : afterIdx)}
+        title="Adicionar bloco"
+      >
+        +
+      </button>
+      {isOpen && (
+        <div style={iz.menu}>
+          {BLOCK_TYPES.map((t) => (
+            <button
+              key={t}
+              style={iz.item}
+              onClick={() => { onAdd(t, afterIdx); setInsertMenuIdx(null); }}
+            >
+              <span style={iz.icon}>{BLOCK_ICONS[t]}</span>
+              <span style={{ textTransform: 'capitalize' }}>{t}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const iz = {
+  btn: {
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    border: '1.5px solid var(--border-strong)',
+    background: 'var(--surface)',
+    color: 'var(--text-muted)',
+    fontSize: 16,
+    lineHeight: 1,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: 'var(--shadow-xs)',
+    zIndex: 5,
+    position: 'relative',
+  },
+  menu: {
+    position: 'absolute',
+    top: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginTop: 4,
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    zIndex: 50,
+    overflow: 'hidden',
+    boxShadow: 'var(--shadow)',
+    minWidth: 160,
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    width: '100%',
+    padding: '9px 12px',
+    background: 'none',
+    border: 'none',
+    textAlign: 'left',
+    fontSize: 13,
+    cursor: 'pointer',
+    color: 'var(--text)',
+    transition: 'background 0.1s',
+  },
+  icon: { fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 },
+};
+
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,9 +114,12 @@ export default function Editor() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(true);
+  const [insertMenuIdx, setInsertMenuIdx] = useState(null);
   const [showImporter, setShowImporter] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
 
   useEffect(() => {
@@ -50,14 +134,24 @@ export default function Editor() {
     }).finally(() => setLoading(false));
   }, [id]);
 
-  async function addBlock(type) {
-    setShowTypeMenu(false);
+  async function addBlockAt(type, afterIdx) {
     const res = await api.post(`/api/stories/${id}/blocks`, {
       type,
       content: DEFAULT_CONTENT[type] || {},
     });
-    setBlocks((b) => [...b, res.data]);
-    setSelected(res.data.id);
+    const newBlock = res.data;
+    const insertPos = afterIdx + 1;
+    const newBlocks = [
+      ...blocks.slice(0, insertPos),
+      newBlock,
+      ...blocks.slice(insertPos),
+    ];
+    setBlocks(newBlocks);
+    setSelected(newBlock.id);
+    if (!rightOpen) setRightOpen(true);
+    await api.post(`/api/stories/${id}/blocks/reorder`, {
+      ordered_ids: newBlocks.map((b) => b.id),
+    });
   }
 
   const updateBlock = useCallback(async (blockId, content) => {
@@ -98,7 +192,30 @@ export default function Editor() {
     setSyncCount(0);
   }
 
+  function selectBlock(blockId) {
+    setSelected(blockId);
+    setInsertMenuIdx(null);
+    if (!rightOpen) setRightOpen(true);
+  }
+
   const selectedBlock = blocks.find((b) => b.id === selected);
+
+  // Load Google Fonts for the selected theme so fonts render in the preview
+  useEffect(() => {
+    if (!story?.theme) return;
+    const config = typeof story.theme === 'string' ? JSON.parse(story.theme) : story.theme;
+    const theme = getTheme(config.id);
+    if (!theme.googleFontsUrl) return;
+    const linkId = `theme-font-${theme.id}`;
+    if (document.getElementById(linkId)) return;
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = theme.googleFontsUrl;
+    document.head.appendChild(link);
+  }, [story?.theme]);
+
+  const themeVars = story ? buildThemeVars(story.theme) : {};
 
   if (loading) return <div style={s.loading}>A carregar editor…</div>;
   if (!story) return <div style={s.loading}>Story não encontrada.</div>;
@@ -120,6 +237,14 @@ export default function Editor() {
           )}
           <button className="btn btn-secondary" onClick={() => setShowImporter(true)}>
             ↓ Importar álbum
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowThemePicker(true)}
+            title="Tema da storie"
+            style={{ padding: '7px 10px' }}
+          >
+            🎨
           </button>
           <button
             className="btn btn-secondary"
@@ -150,91 +275,117 @@ export default function Editor() {
       </header>
 
       <div style={s.body}>
-        {/* Left sidebar */}
-        <aside style={s.sidebar}>
-          <p style={s.sidebarLabel}>Blocos  <span style={s.blockCount}>{blocks.length}</span></p>
-
-          <SortableBlockList
-            blocks={blocks}
-            selected={selected}
-            onSelect={setSelected}
-            onReorder={handleReorder}
-          />
-
-          <div style={{ position: 'relative', marginTop: 10 }}>
-            <button style={s.btnAdd} onClick={() => setShowTypeMenu(!showTypeMenu)}>
-              + Adicionar bloco
-            </button>
-            {showTypeMenu && (
-              <div style={s.typeMenu}>
-                {BLOCK_TYPES.map((t) => (
-                  <button key={t} style={s.typeMenuItem} onClick={() => addBlock(t)}>
-                    <span style={s.typeMenuIcon}>{BLOCK_ICONS[t]}</span>
-                    <span style={{ textTransform: 'capitalize' }}>{t}</span>
-                  </button>
-                ))}
+        {/* Left sidebar — collapsible */}
+        <aside style={{ ...s.sidebar, width: leftOpen ? 192 : 40 }}>
+          {leftOpen ? (
+            <>
+              <div style={s.sidebarHeader}>
+                <span style={s.sidebarLabel}>
+                  Blocos <span style={s.blockCount}>{blocks.length}</span>
+                </span>
+                <button style={s.panelToggle} onClick={() => setLeftOpen(false)} title="Fechar painel">‹</button>
               </div>
-            )}
-          </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px' }}>
+                <SortableBlockList
+                  blocks={blocks}
+                  selected={selected}
+                  onSelect={selectBlock}
+                  onReorder={handleReorder}
+                />
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <button style={s.panelToggle} onClick={() => setLeftOpen(true)} title="Mostrar blocos">›</button>
+            </div>
+          )}
         </aside>
 
         {/* Center — preview */}
-        <main style={s.preview} onClick={() => setShowTypeMenu(false)}>
+        <main style={{ ...s.preview, ...themeVars }} onClick={() => setInsertMenuIdx(null)}>
+          {/* Insert zone before first block */}
+          <div style={s.storyCanvas}>
+            <BlockInsertZone
+              afterIdx={-1}
+              insertMenuIdx={insertMenuIdx}
+              setInsertMenuIdx={setInsertMenuIdx}
+              onAdd={addBlockAt}
+            />
+          </div>
+
           {blocks.length === 0 && (
             <div style={s.emptyPreview}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>📷</div>
-              <p style={{ fontWeight: 600, fontSize: 15 }}>Sem blocos ainda.</p>
-              <p style={{ fontSize: 13, marginTop: 6, color: 'var(--text-muted)' }}>
-                Usa "Importar álbum" ou "+ Adicionar bloco" para começar.
+              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>+</div>
+              <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>
+                Clica em <strong>+</strong> para adicionar o primeiro bloco
               </p>
             </div>
           )}
-          {blocks.map((b) => {
+
+          {blocks.map((b, idx) => {
             const isHero = b.type === 'hero';
-            const wrap = (
+            const blockEl = (
               <div
-                key={b.id}
                 className="block-wrap"
                 style={{
                   ...s.blockWrapper,
                   ...(selected === b.id ? s.blockWrapperActive : {}),
                 }}
-                onClick={(e) => { e.stopPropagation(); setSelected(b.id); }}
+                onClick={(e) => { e.stopPropagation(); selectBlock(b.id); }}
               >
                 <BlockToolbar
                   onMoveUp={() => {
-                    const idx = blocks.findIndex((bl) => bl.id === b.id);
-                    if (idx > 0) handleReorder([...blocks.slice(0, idx - 1), blocks[idx], blocks[idx - 1], ...blocks.slice(idx + 1)]);
+                    const i = blocks.findIndex((bl) => bl.id === b.id);
+                    if (i > 0) handleReorder([...blocks.slice(0, i - 1), blocks[i], blocks[i - 1], ...blocks.slice(i + 1)]);
                   }}
                   onMoveDown={() => {
-                    const idx = blocks.findIndex((bl) => bl.id === b.id);
-                    if (idx < blocks.length - 1) handleReorder([...blocks.slice(0, idx), blocks[idx + 1], blocks[idx], ...blocks.slice(idx + 2)]);
+                    const i = blocks.findIndex((bl) => bl.id === b.id);
+                    if (i < blocks.length - 1) handleReorder([...blocks.slice(0, i), blocks[i + 1], blocks[i], ...blocks.slice(i + 2)]);
                   }}
                   onDelete={() => deleteBlock(b.id)}
                 />
                 <ViewerBlock block={b} story={story} thumbUrlFn={editorThumbUrl} />
               </div>
             );
-            return isHero ? wrap : (
-              <div key={b.id} style={s.storyCanvas}>
-                {wrap}
-              </div>
+            return (
+              <Fragment key={b.id}>
+                {isHero ? blockEl : <div style={s.storyCanvas}>{blockEl}</div>}
+                <div style={s.storyCanvas}>
+                  <BlockInsertZone
+                    afterIdx={idx}
+                    insertMenuIdx={insertMenuIdx}
+                    setInsertMenuIdx={setInsertMenuIdx}
+                    onAdd={addBlockAt}
+                  />
+                </div>
+              </Fragment>
             );
           })}
         </main>
 
-        {/* Right — properties */}
-        <aside style={s.props}>
-          {selectedBlock ? (
-            <BlockEditor
-              key={selectedBlock.id}
-              block={selectedBlock}
-              onChange={(content) => updateBlock(selectedBlock.id, content)}
-            />
+        {/* Right — properties, collapsible */}
+        <aside style={{ ...s.props, width: rightOpen ? 292 : 36 }}>
+          {rightOpen ? (
+            <>
+              <div style={s.propsHeader}>
+                <button style={s.panelToggle} onClick={() => setRightOpen(false)} title="Fechar painel">›</button>
+              </div>
+              {selectedBlock ? (
+                <BlockEditor
+                  key={selectedBlock.id}
+                  block={selectedBlock}
+                  onChange={(content) => updateBlock(selectedBlock.id, content)}
+                />
+              ) : (
+                <div style={s.propsEmpty}>
+                  <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.4 }}>⚙</div>
+                  <p style={s.hint}>Selecciona um bloco para editar as propriedades</p>
+                </div>
+              )}
+            </>
           ) : (
-            <div style={s.propsEmpty}>
-              <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.4 }}>⚙</div>
-              <p style={s.hint}>Selecciona um bloco para editar as propriedades</p>
+            <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <button style={s.panelToggle} onClick={() => setRightOpen(true)} title="Propriedades">‹</button>
             </div>
           )}
         </aside>
@@ -250,6 +401,15 @@ export default function Editor() {
           hasPassword={!!story.password_hash}
           onClose={() => setShowPasswordModal(false)}
           onSaved={(has) => setStory((s) => ({ ...s, password_hash: has ? 'set' : null }))}
+        />
+      )}
+
+      {showThemePicker && (
+        <ThemePicker
+          storyId={id}
+          currentTheme={story.theme}
+          onSaved={(theme) => setStory((s) => ({ ...s, theme }))}
+          onClose={() => setShowThemePicker(false)}
         />
       )}
     </div>
@@ -352,14 +512,19 @@ const s = {
   },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
   sidebar: {
-    width: 192,
     background: 'var(--surface)',
     borderRight: '1px solid var(--border)',
-    padding: '12px 8px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
-    overflowY: 'auto',
+    overflowX: 'hidden',
+    flexShrink: 0,
+    transition: 'width 0.2s ease',
+  },
+  sidebarHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 10px 6px 12px',
     flexShrink: 0,
   },
   sidebarLabel: {
@@ -368,8 +533,6 @@ const s = {
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
     fontWeight: 600,
-    marginBottom: 6,
-    padding: '0 6px',
     display: 'flex',
     alignItems: 'center',
     gap: 6,
@@ -382,45 +545,23 @@ const s = {
     fontWeight: 600,
     fontSize: 10,
   },
-  btnAdd: {
-    width: '100%',
-    padding: '8px 0',
-    background: 'transparent',
-    border: '1px dashed var(--border-strong)',
-    borderRadius: 'var(--radius-sm)',
-    fontSize: 12,
-    color: 'var(--text-muted)',
+  panelToggle: {
+    width: 28,
+    height: 28,
+    border: 'none',
+    background: 'none',
+    color: 'var(--text-faint)',
+    fontSize: 18,
     cursor: 'pointer',
-    fontWeight: 500,
-    transition: 'background 0.12s, border-color 0.12s',
-  },
-  typeMenu: {
-    position: 'absolute',
-    top: 'calc(100% + 4px)',
-    left: 0,
-    right: 0,
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius)',
-    zIndex: 50,
-    overflow: 'hidden',
-    boxShadow: 'var(--shadow)',
-  },
-  typeMenuItem: {
+    borderRadius: 'var(--radius-sm)',
     display: 'flex',
     alignItems: 'center',
-    gap: 9,
-    width: '100%',
-    padding: '9px 12px',
-    background: 'none',
-    border: 'none',
-    textAlign: 'left',
-    fontSize: 13,
-    cursor: 'pointer',
-    color: 'var(--text)',
-    transition: 'background 0.1s',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'background 0.12s, color 0.12s',
+    padding: 0,
+    lineHeight: 1,
   },
-  typeMenuIcon: { fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 },
   preview: { flex: 1, overflowY: 'auto', background: 'var(--paper, #faf8f5)', paddingBottom: '6rem' },
   storyCanvas: {
     maxWidth: 900,
@@ -430,7 +571,7 @@ const s = {
   emptyPreview: {
     textAlign: 'center',
     color: 'var(--text-muted)',
-    paddingTop: 80,
+    paddingTop: 60,
     fontSize: 14,
     lineHeight: 1.6,
   },
@@ -443,11 +584,18 @@ const s = {
   },
   blockWrapperActive: { outline: '2px solid var(--accent)', outlineOffset: 2 },
   props: {
-    width: 292,
     background: 'var(--surface)',
     borderLeft: '1px solid var(--border)',
-    padding: 16,
     overflowY: 'auto',
+    overflowX: 'hidden',
+    flexShrink: 0,
+    transition: 'width 0.2s ease',
+  },
+  propsHeader: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    padding: '6px 6px 0',
+    marginBottom: 4,
     flexShrink: 0,
   },
   propsEmpty: {
@@ -455,7 +603,7 @@ const s = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
+    height: '80%',
     paddingBottom: 40,
   },
   hint: { color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', lineHeight: 1.6 },

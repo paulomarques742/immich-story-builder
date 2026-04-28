@@ -16,4 +16,7 @@ db.pragma('foreign_keys = ON');
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
+// Migrations — safe to run on every startup
+try { db.exec(`ALTER TABLE stories ADD COLUMN theme TEXT DEFAULT NULL`); } catch {}
+
 module.exports = db;

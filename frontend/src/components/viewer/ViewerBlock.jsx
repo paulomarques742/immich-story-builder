@@ -44,23 +44,23 @@ function parse(block) {
   catch { return {}; }
 }
 
-// ── Search filter ────────────────────────────────────────────────
-function blockMatchesSearch(block, content, term) {
-  const t = term.toLowerCase();
-  if (block.type === 'hero') return (content.title || '').toLowerCase().includes(t) || (content.caption || '').toLowerCase().includes(t);
-  if (block.type === 'text') return (content.markdown || '').toLowerCase().includes(t);
-  if (block.type === 'divider') return (content.label || '').toLowerCase().includes(t);
-  if (block.type === 'video') return (content.caption || '').toLowerCase().includes(t);
-  if (block.type === 'map') return (content.label || '').toLowerCase().includes(t);
-  if (block.type === 'quote') return (content.quote || '').toLowerCase().includes(t) || (content.author || '').toLowerCase().includes(t);
-  return true;
+// ── People filter ────────────────────────────────────────────────
+function blockMatchesPeople(block, content, personAssetIds) {
+  if (!personAssetIds || personAssetIds.size === 0) return true;
+  if (block.type === 'grid') {
+    return (content.asset_ids || []).some((id) => personAssetIds.has(id));
+  }
+  if (block.type === 'hero') {
+    return content.asset_id ? personAssetIds.has(content.asset_id) : false;
+  }
+  return false;
 }
 
 // ── ViewerBlock dispatcher ───────────────────────────────────────
-export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, searchTerm, thumbUrlFn = publicThumbUrl, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
+export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, personAssetIds, thumbUrlFn = publicThumbUrl, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
   const content = parse(block);
-  const matched = !searchTerm || blockMatchesSearch(block, content, searchTerm);
-  const dimStyle = matched ? undefined : { opacity: 0.15, pointerEvents: 'none' };
+  const matchedPeople = blockMatchesPeople(block, content, personAssetIds);
+  const dimStyle = matchedPeople ? undefined : { display: 'none' };
 
   const slug = story?.slug;
   const photoProps = { likeCounts, commentCounts, likedByMe, onLike };
@@ -75,7 +75,7 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
     case 'grid':
       return (
         <div id={`block-${block.id}`} style={dimStyle}>
-          <ViewerGrid content={content} slug={slug} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} thumbUrlFn={thumbUrlFn} {...photoProps} />
+          <ViewerGrid content={content} slug={slug} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} thumbUrlFn={thumbUrlFn} personAssetIds={personAssetIds} {...photoProps} />
         </div>
       );
     case 'map':
@@ -155,26 +155,6 @@ function ViewerHero({ content, story, slug, thumbUrlFn = publicThumbUrl }) {
             color: 'rgba(255,255,255,0.65)', marginTop: '1rem',
           }}>{heroSub}</p>
         )}
-      </div>
-
-      {/* Scroll indicator */}
-      <div
-        className="mv-scroll-indicator"
-        style={{
-          position: 'absolute', bottom: '2.5rem', right: '5rem', zIndex: 3,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
-          animation: 'fadeUp 1000ms 800ms var(--ease-out) both',
-        }}
-      >
-        <div style={{
-          width: 1, height: 40, background: 'rgba(255,255,255,0.4)',
-          animation: 'scrollPulse 2s 1500ms ease-in-out infinite',
-        }} />
-        <span style={{
-          fontFamily: 'var(--font-body)', fontSize: '0.62rem', fontWeight: 500,
-          letterSpacing: '0.16em', textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.4)',
-        }}>scroll</span>
       </div>
     </div>
   );
@@ -258,8 +238,11 @@ function ViewerText({ content }) {
 // ── Grid (smart dispatch) ─────────────────────────────────────────
 const GAP_MAP = { sm: '0.375rem', md: '0.75rem', lg: '1.5rem' };
 
-function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = publicThumbUrl, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
-  const { asset_ids = [], columns = 3, aspect = 'square', gap = 'sm' } = content;
+function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = publicThumbUrl, personAssetIds, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
+  const { columns = 3, aspect = 'square', gap = 'sm' } = content;
+  const asset_ids = personAssetIds?.size > 0
+    ? (content.asset_ids || []).filter((id) => personAssetIds.has(id))
+    : (content.asset_ids || []);
   const gapValue = GAP_MAP[gap] || GAP_MAP.sm;
   if (asset_ids.length === 0) return null;
 

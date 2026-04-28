@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verão na Comporta · 2024 — Memoire</title>
+<meta name="description" content="Uma semana na Comporta com a família. Agosto de 2024.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --ink:         #1a1814;
+  --ink-soft:    #3d3a35;
+  --ink-muted:   #7a756d;
+  --ink-faint:   #b8b2a8;
+  --paper:       #faf8f5;
+  --paper-warm:  #f4f0ea;
+  --paper-deep:  #ede8e0;
+  --accent:      #c4795a;
+  --accent-soft: #d9957a;
+  --accent-pale: #f2e4dc;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease:     cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink:        #e8e2d8;
+    --ink-soft:   #c8c0b4;
+    --ink-muted:  #8a8378;
+    --ink-faint:  #4a4640;
+    --paper:      #16140f;
+    --paper-warm: #1f1d17;
+    --paper-deep: #2a271f;
+    --accent:      #d9957a;
+    --accent-soft: #c4795a;
+    --accent-pale: rgba(196,121,90,0.12);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--paper-deep); border-radius: 2px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 52px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-deep) 60%, transparent);
+  transition: background 300ms var(--ease);
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.topbar-logomark {
+  width: 26px; height: 26px;
+  background: var(--ink);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.topbar-logomark svg { width: 14px; height: 14px; fill: var(--paper); }
+
+.topbar-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-warm);
+  border: 1px solid var(--paper-deep);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: all 200ms var(--ease-out);
+}
+
+.topbar-search:hover {
+  border-color: var(--ink-faint);
+  background: var(--paper-deep);
+}
+
+.topbar-search svg { width: 13px; height: 13px; }
+
+.topbar-share {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--paper-deep);
+  border-radius: 20px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all 200ms var(--ease-out);
+}
+
+.topbar-share:hover {
+  border-color: var(--ink-faint);
+  background: var(--paper-warm);
+  color: var(--ink);
+}
+
+.topbar-share svg { width: 13px; height: 13px; }
+
+/* ── SIDE NAV ── */
+.side-nav {
+  position: fixed;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.nav-label {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  opacity: 0;
+  transform: translateX(4px);
+  transition: all 220ms var(--ease-out);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.nav-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  transition: all 220ms var(--ease-out);
+  flex-shrink: 0;
+}
+
+.nav-item:hover .nav-label,
+.nav-item.active .nav-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.nav-item:hover .nav-dot,
+.nav-item.active .nav-dot {
+  background: var(--ink);
+  width: 7px; height: 7px;
+}
+
+.nav-item.active .nav-dot {
+  background: var(--accent);
+}
+
+/* ── MAIN ── */
+.story {
+  padding-top: 52px;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  height: 92vh;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--paper-deep);
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(160deg,
+      #c8b89888 0%,
+      #a8906878 30%,
+      #7a6045 60%,
+      #4a3828 100%);
+  transform-origin: center;
+  animation: heroReveal 1.4s var(--ease-out) both;
+}
+
+/* Grain overlay */
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@keyframes heroReveal {
+  from { transform: scale(1.06); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(26,24,20,0.72) 0%,
+    rgba(26,24,20,0.18) 45%,
+    transparent 70%
+  );
+}
+
+.hero-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4rem 5rem;
+  animation: fadeUp 1s 0.3s var(--ease-out) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-eyebrow {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 1rem;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.0;
+  color: #fff;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.25rem;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.2);
+}
+
+.hero-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: rgba(255,255,255,0.65);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hero-subtitle-sep {
+  width: 1px;
+  height: 12px;
+  background: rgba(255,255,255,0.25);
+}
+
+.hero-scroll {
+  position: absolute;
+  bottom: 2.5rem;
+  right: 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: fadeUp 1s 0.8s var(--ease-out) both;
+}
+
+.hero-scroll-line {
+  width: 1px;
+  height: 32px;
+  background: rgba(255,255,255,0.25);
+  animation: scrollPulse 2s 1.5s ease-in-out infinite;
+}
+
+@keyframes scrollPulse {
+  0%, 100% { opacity: 0.3; transform: scaleY(1); }
+  50%       { opacity: 0.7; transform: scaleY(1.1); }
+}
+
+/* ── STORY BODY ── */
+.story-body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 2rem 6rem;
+}
+
+/* ── SECTION ── */
+.section {
+  padding: 5rem 0 2rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out);
+}
+
+.section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin: 4rem 0 3rem;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--paper-deep);
+}
+
+.divider-label {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* ── TEXT BLOCK ── */
+.text-block {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+
+.text-block h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.text-block p {
+  font-family: var(--font-body);
+  font-size: 1.0rem;
+  font-weight: 300;
+  line-height: 1.85;
+  color: var(--ink-soft);
+  margin-bottom: 1rem;
+}
+
+.text-block p:last-child { margin-bottom: 0; }
+
+.text-block strong { font-weight: 500; color: var(--ink); }
+.text-block em { font-style: italic; }
+
+/* ── PHOTO: FULL WIDTH ── */
+.photo-full {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  background: var(--paper-deep);
+  box-shadow: 0 2px 12px rgba(26,24,20,0.1), 0 0 0 1px rgba(26,24,20,0.04);
+  margin: 2rem 0;
+}
+
+.photo-full-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+  transition: transform 600ms var(--ease-out);
+}
+
+.photo-full:hover .photo-full-img { transform: scale(1.02); }
+
+.photo-caption {
+  padding: 0.85rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--paper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.photo-caption-loc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-style: normal;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.photo-caption-loc svg { width: 10px; height: 10px; }
+
+/* ── PHOTO: SIDE BY SIDE ── */
+.photo-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+  margin: 2rem 0;
+}
+
+.photo-duo-item {
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--paper-deep);
+  box-shadow: 0 1px 8px rgba(26,24,20,0.08);
+  position: relative;
+}
+
+.photo-duo-item-img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  display: block;
+  transition: transform 550ms var(--ease-out);
+}
+
+.photo-duo-item:hover .photo-duo-item-img { transform: scale(1.04); }
+
+/* ── PHOTO: GRID 3 ── */
+.photo-grid {
+  display: grid;
+  gap: 0.5rem;
+  margin: 2rem 0;
+}
+
+.photo-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.photo-grid-2x2 { grid-template-columns: repeat(2, 1fr); }
+
+.photo-grid-item {
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--paper-deep);
+  position: relative;
+  cursor: zoom-in;
+}
+
+.photo-grid-item-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  transition: transform 500ms var(--ease-out);
+}
+
+.photo-grid-item:hover .photo-grid-item-img { transform: scale(1.06); }
+
+/* ── PHOTO: ASYMMETRIC ── */
+.photo-asym {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.625rem;
+  margin: 2rem 0;
+  align-items: stretch;
+}
+
+.photo-asym-main {
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--paper-deep);
+}
+
+.photo-asym-main-img {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  object-fit: cover;
+  display: block;
+  transition: transform 600ms var(--ease-out);
+}
+
+.photo-asym-main:hover .photo-asym-main-img { transform: scale(1.03); }
+
+.photo-asym-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.photo-asym-stack-item {
+  flex: 1;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--paper-deep);
+}
+
+.photo-asym-stack-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 550ms var(--ease-out);
+}
+
+.photo-asym-stack-item:hover .photo-asym-stack-img { transform: scale(1.06); }
+
+/* ── MAP BLOCK ── */
+.map-block {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--paper-deep);
+  margin: 2.5rem 0;
+  background: var(--paper-warm);
+}
+
+.map-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--paper-deep);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.map-header svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+
+.map-header-text { flex: 1; }
+
+.map-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.map-subtitle {
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: var(--ink-muted);
+  margin-top: 1px;
+}
+
+.map-canvas {
+  position: relative;
+  height: 280px;
+  background:
+    linear-gradient(rgba(240,235,225,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240,235,225,0.4) 1px, transparent 1px),
+    linear-gradient(160deg, #e8e0d0 0%, #d8cfc0 40%, #ccc4b0 70%, #c0b8a0 100%);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+}
+
+/* Simulated map roads */
+.map-road {
+  position: absolute;
+  background: rgba(255,255,255,0.5);
+  border-radius: 2px;
+}
+
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.map-pin-icon {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(196,121,90,0.4);
+  border: 2px solid white;
+}
+
+.map-pin-label {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  border: 1px solid var(--paper-deep);
+}
+
+.map-attribution {
+  padding: 0.5rem 1rem;
+  font-size: 0.65rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--paper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── PULL QUOTE ── */
+.pull-quote {
+  margin: 3rem auto;
+  max-width: 600px;
+  text-align: center;
+  padding: 2.5rem 2rem;
+  position: relative;
+}
+
+.pull-quote::before {
+  content: '"';
+  font-family: var(--font-display);
+  font-size: 8rem;
+  font-weight: 300;
+  line-height: 0.5;
+  color: var(--accent-pale);
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pull-quote-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--ink);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 1.25rem;
+}
+
+.pull-quote-author {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* ── VIDEO BLOCK ── */
+.video-block {
+  margin: 2rem 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ink);
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.video-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #2a2018 0%, #1a1410 100%);
+  opacity: 0.9;
+}
+
+.video-play {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: white;
+  transition: transform 300ms var(--ease-out);
+}
+
+.video-block:hover .video-play { transform: scale(1.05); }
+
+.video-play-btn {
+  width: 64px; height: 64px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 200ms var(--ease-out);
+  backdrop-filter: blur(4px);
+}
+
+.video-block:hover .video-play-btn { background: rgba(255,255,255,0.2); }
+
+.video-play-btn svg { width: 22px; height: 22px; fill: white; margin-left: 3px; }
+
+.video-label {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+}
+
+/* ── COMMENTS ── */
+.comments-section {
+  margin-top: 5rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--paper-deep);
+}
+
+.comments-heading {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.comments-count {
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--ink-muted);
+  margin-bottom: 2.5rem;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-bottom: 3rem;
+}
+
+.comment {
+  display: flex;
+  gap: 1rem;
+  animation: fadeUp 400ms var(--ease-out) both;
+}
+
+.comment-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--paper-deep);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+.comment-body { flex: 1; }
+
+.comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  margin-bottom: 0.375rem;
+}
+
+.comment-author {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.comment-date {
+  font-size: 0.725rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+}
+
+.comment-photo-ref {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--accent);
+  background: var(--accent-pale);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.comment-text {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+/* Comment form */
+.comment-form-wrapper {
+  background: var(--paper-warm);
+  border: 1px solid var(--paper-deep);
+  border-radius: 8px;
+  padding: 1.75rem;
+}
+
+.comment-form-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 1.25rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.form-input {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 300;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--paper-deep);
+  border-radius: 4px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  width: 100%;
+}
+
+.form-input::placeholder { color: var(--ink-faint); }
+.form-input:hover { border-color: var(--ink-faint); }
+.form-input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(26,24,20,0.06);
+}
+
+textarea.form-input {
+  resize: vertical;
+  line-height: 1.65;
+  min-height: 90px;
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.875rem;
+}
+
+.form-note {
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+}
+
+.btn-submit {
+  font-family: var(--font-body);
+  font-size: 0.825rem;
+  font-weight: 400;
+  color: var(--paper);
+  background: var(--ink);
+  border: none;
+  border-radius: 4px;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: all 200ms var(--ease-out);
+  letter-spacing: 0.01em;
+}
+
+.btn-submit:hover {
+  background: var(--ink-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26,24,20,0.18);
+}
+
+/* ── FOOTER ── */
+.story-footer {
+  border-top: 1px solid var(--paper-deep);
+  padding: 2rem 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4rem;
+}
+
+.story-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.story-footer-brand svg { width: 14px; height: 14px; fill: var(--ink-faint); }
+
+.story-footer-info {
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+  text-align: right;
+  line-height: 1.8;
+}
+
+/* ── LIGHTBOX ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(12,10,8,0.96);
+  display: flex;
+  align-items: stretch;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms var(--ease);
+  backdrop-filter: blur(12px);
+}
+
+.lightbox.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Left: photo */
+.lightbox-photo-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 2.5rem 2.5rem;
+  position: relative;
+  min-width: 0;
+}
+
+.lightbox-img-wrap {
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  border-radius: 4px;
+  overflow: hidden;
+  transform: scale(0.96) translateY(8px);
+  transition: transform 380ms var(--ease-out);
+  box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox.open .lightbox-img-wrap {
+  transform: scale(1) translateY(0);
+}
+
+.lightbox-img-el {
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  display: block;
+  border-radius: 4px;
+}
+
+.lightbox-caption {
+  margin-top: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  line-height: 1.5;
+  min-height: 1.2em;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+.lightbox-nav-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  pointer-events: all;
+  transition: all 180ms var(--ease-out);
+  backdrop-filter: blur(4px);
+}
+
+.lightbox-nav-btn:hover {
+  background: rgba(255,255,255,0.16);
+  color: white;
+}
+
+.lightbox-nav-btn svg { width: 16px; height: 16px; }
+
+/* Right: comments panel */
+.lightbox-comments-side {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(20px);
+  transition: transform 380ms 60ms var(--ease-out);
+  overflow: hidden;
+}
+
+.lightbox.open .lightbox-comments-side {
+  transform: translateX(0);
+}
+
+.lc-header {
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--paper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.lc-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.lc-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+  background: var(--paper-deep);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: color 150ms var(--ease);
+  font-size: 1.2rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.lightbox-close:hover { color: white; background: rgba(255,255,255,0.12); }
+
+/* Comments scroll area */
+.lc-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.lc-scroll::-webkit-scrollbar { width: 3px; }
+.lc-scroll::-webkit-scrollbar-thumb { background: var(--paper-deep); border-radius: 2px; }
+
+.lc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  gap: 0.5rem;
+  color: var(--ink-faint);
+}
+
+.lc-empty svg { width: 28px; height: 28px; opacity: 0.3; }
+
+.lc-empty-text {
+  font-size: 0.8rem;
+  font-weight: 300;
+  font-style: italic;
+}
+
+/* Individual comment in lightbox */
+.lc-comment {
+  display: flex;
+  gap: 0.75rem;
+  animation: fadeUp 300ms var(--ease-out) both;
+}
+
+.lc-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--paper-deep);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.lc-body { flex: 1; min-width: 0; }
+
+.lc-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 3px;
+}
+
+.lc-author {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.lc-date {
+  font-size: 0.68rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+}
+
+.lc-text {
+  font-size: 0.83rem;
+  font-weight: 300;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+/* Comment form in lightbox */
+.lc-form {
+  padding: 1rem 1.5rem 1.25rem;
+  border-top: 1px solid var(--paper-deep);
+  background: var(--paper-warm);
+  flex-shrink: 0;
+}
+
+.lc-form-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 0.6rem;
+  display: block;
+}
+
+.lc-input {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--paper-deep);
+  border-radius: 4px;
+  padding: 7px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  margin-bottom: 0.5rem;
+}
+
+.lc-input::placeholder { color: var(--ink-faint); }
+.lc-input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(26,24,20,0.06);
+}
+
+textarea.lc-input {
+  resize: none;
+  line-height: 1.6;
+  height: 64px;
+  margin-bottom: 0.6rem;
+}
+
+.lc-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lc-submit {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--paper);
+  background: var(--ink);
+  border: none;
+  border-radius: 4px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: all 180ms var(--ease-out);
+  white-space: nowrap;
+}
+
+.lc-submit:hover {
+  background: var(--ink-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(26,24,20,0.2);
+}
+
+.lc-form-note {
+  font-size: 0.68rem;
+  font-weight: 300;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .lightbox {
+    flex-direction: column;
+  }
+  .lightbox-comments-side {
+    width: 100%;
+    height: 45vh;
+    transform: translateY(20px);
+    border-top: 1px solid var(--paper-deep);
+  }
+  .lightbox.open .lightbox-comments-side {
+    transform: translateY(0);
+  }
+  .lightbox-photo-side {
+    padding: 3rem 1rem 1rem;
+    flex: 1;
+  }
+}
+
+/* ── COLOR BLOCKS (substituting real photos) ── */
+.ph { width: 100%; height: 100%; display: block; }
+.ph-dune    { background: linear-gradient(145deg, #d8c8a8 0%, #b8a080 40%, #907858 100%); }
+.ph-sea     { background: linear-gradient(145deg, #a0b8c8 0%, #7898b0 40%, #507890 100%); }
+.ph-golden  { background: linear-gradient(155deg, #e0c880 0%, #c8a840 40%, #a08020 100%); }
+.ph-pine    { background: linear-gradient(145deg, #90a878 0%, #708058 40%, #506040 100%); }
+.ph-sunset  { background: linear-gradient(160deg, #e8a060 0%, #c87040 50%, #a04830 100%); }
+.ph-kids    { background: linear-gradient(145deg, #c8d0b8 0%, #a8b098 40%, #889078 100%); }
+.ph-table   { background: linear-gradient(145deg, #d0c0a8 0%, #b0a080 40%, #907858 100%); }
+.ph-night   { background: linear-gradient(155deg, #303028 0%, #201810 50%, #100800 100%); }
+.ph-flower  { background: linear-gradient(145deg, #e8b8c0 0%, #c89098 40%, #a06870 100%); }
+.ph-horse   { background: linear-gradient(145deg, #c0b0a0 0%, #a09080 40%, #807060 100%); }
+.ph-road    { background: linear-gradient(170deg, #b8b0a0 0%, #988878 40%, #786858 100%); }
+.ph-morning { background: linear-gradient(145deg, #e8e0d0 0%, #c8c0a8 40%, #a8a080 100%); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 720px) {
+  .side-nav { display: none; }
+  .hero-content { padding: 2.5rem 1.5rem; }
+  .hero-scroll { right: 1.5rem; }
+  .story-body { padding: 0 1.25rem 4rem; }
+  .photo-duo { grid-template-columns: 1fr; }
+  .photo-asym { grid-template-columns: 1fr; }
+  .photo-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .form-row { grid-template-columns: 1fr; }
+  .story-footer { padding: 1.5rem 1.25rem; flex-direction: column; gap: 1rem; text-align: center; }
+  .story-footer-info { text-align: center; }
+  .topbar { padding: 0 1.25rem; }
+  .pull-quote { padding: 2rem 0; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <a href="#" class="topbar-logo">
+    <div class="topbar-logomark">
+      <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="10" rx="0.5"/><rect x="11" y="2" width="7" height="6" rx="0.5" opacity="0.6"/><rect x="11" y="10" width="7" height="8" rx="0.5" opacity="0.4"/><rect x="2" y="14" width="7" height="4" rx="0.5" opacity="0.3"/></svg>
+    </div>
+    <span class="topbar-name">Memoire</span>
+  </a>
+  <div class="topbar-right">
+    <div class="topbar-search">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M11 11l2.5 2.5"/></svg>
+      Pesquisar
+    </div>
+    <button class="topbar-share">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l4 4-4 4M14 6H6a4 4 0 000 8h1"/></svg>
+      Partilhar
+    </button>
+  </div>
+</nav>
+
+<!-- SIDE NAV -->
+<nav class="side-nav" id="sideNav">
+  <a class="nav-item active" href="#inicio" data-section="inicio">
+    <span class="nav-label">Início</span>
+    <span class="nav-dot"></span>
+  </a>
+  <a class="nav-item" href="#chegada" data-section="chegada">
+    <span class="nav-label">Chegada</span>
+    <span class="nav-dot"></span>
+  </a>
+  <a class="nav-item" href="#praia" data-section="praia">
+    <span class="nav-label">Dias de Praia</span>
+    <span class="nav-dot"></span>
+  </a>
+  <a class="nav-item" href="#passeio" data-section="passeio">
+    <span class="nav-label">Cavalos & Pinhais</span>
+    <span class="nav-dot"></span>
+  </a>
+  <a class="nav-item" href="#mesa" data-section="mesa">
+    <span class="nav-label">À Mesa</span>
+    <span class="nav-dot"></span>
+  </a>
+  <a class="nav-item" href="#ultima" data-section="ultima">
+    <span class="nav-label">Última Noite</span>
+    <span class="nav-dot"></span>
+  </a>
+</nav>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+
+  <!-- Left: Photo -->
+  <div class="lightbox-photo-side">
+    <button class="lightbox-close" id="lightboxClose">✕</button>
+    <div class="lightbox-img-wrap">
+      <div id="lightboxImg" style="width:100%;height:480px;border-radius:4px;"></div>
+    </div>
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+    <div class="lightbox-nav">
+      <button class="lightbox-nav-btn" id="lightboxPrev">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg>
+      </button>
+      <button class="lightbox-nav-btn" id="lightboxNext">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Right: Comments -->
+  <div class="lightbox-comments-side">
+    <div class="lc-header">
+      <span class="lc-title">Comentários</span>
+      <span class="lc-count" id="lcCount">0</span>
+    </div>
+
+    <div class="lc-scroll" id="lcScroll">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="lc-form">
+      <label class="lc-form-label">Deixar comentário</label>
+      <input class="lc-input" id="lcName" type="text" placeholder="O teu nome">
+      <textarea class="lc-input" id="lcText" placeholder="O teu comentário…"></textarea>
+      <div class="lc-form-footer">
+        <div class="lc-form-note">Só o nome é publicado.</div>
+        <button class="lc-submit" id="lcSubmit">Publicar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STORY -->
+<main class="story">
+
+  <!-- HERO -->
+  <section id="inicio">
+    <div class="hero">
+      <div class="hero-bg ph-dune"></div>
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <div class="hero-eyebrow">Comporta · Agosto 2024</div>
+        <h1 class="hero-title">Verão na Comporta</h1>
+        <div class="hero-subtitle">
+          <span>Ricardo &amp; Família</span>
+          <span class="hero-subtitle-sep"></span>
+          <span>7 dias · 3 álbuns · 94 fotos</span>
+          <span class="hero-subtitle-sep"></span>
+          <span>Agosto de 2024</span>
+        </div>
+      </div>
+      <div class="hero-scroll">
+        <div class="hero-scroll-line"></div>
+        scroll
+      </div>
+    </div>
+  </section>
+
+  <!-- BODY -->
+  <div class="story-body">
+
+    <!-- SECTION: CHEGADA -->
+    <section id="chegada" class="section">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-label">Dia 1 · Chegada</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="text-block">
+        <h2>O primeiro dia</h2>
+        <p>Chegámos ao final da tarde, quando o sol já estava baixo e a A2 finalmente vazia. A casa cheirava a madeira quente e a alfazema — o mesmo cheiro de sempre, daquele que faz os miúdos gritar "chegámos!" antes de o carro parar.</p>
+        <p>Aquela <strong>hora entre as seis e as oito</strong> em Comporta tem uma luz que não existe mais em lado nenhum. Horizontal, dourada, com aquela qualidade que os fotógrafos chamam <em>hora mágica</em> mas que aqui dura o dobro.</p>
+      </div>
+
+      <div class="photo-full photo-clickable" data-photo-id="ph-golden" data-caption="Vista da casa ao fim da tarde · Comporta, 3 Ago 2024">
+        <div class="ph ph-golden photo-full-img" style="height:360px;"></div>
+        <div class="photo-caption">
+          Vista da varanda ao fim da tarde — a luz que justifica tudo
+          <span class="photo-caption-loc">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a4.5 4.5 0 010 9A4.5 4.5 0 018 2z"/><path d="M8 14s-5-4.5-5-7a5 5 0 0110 0c0 2.5-5 7-5 7z" fill="currentColor" opacity="0.15"/><circle cx="8" cy="7" r="1.5"/></svg>
+            Comporta, Setúbal
+          </span>
+        </div>
+      </div>
+
+      <div class="photo-duo">
+        <div class="photo-duo-item photo-clickable" data-photo-id="ph-kids" data-caption="Na piscina, primeiro dia">
+          <div class="ph ph-kids photo-duo-item-img"></div>
+        </div>
+        <div class="photo-duo-item photo-clickable" data-photo-id="ph-pine" data-caption="Pinhal da Comporta">
+          <div class="ph ph-pine photo-duo-item-img"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: PRAIA -->
+    <section id="praia" class="section">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-label">Dias 2–4 · A Praia</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="text-block">
+        <h2>Praia de Comporta</h2>
+        <p>Acordámos cedo e fomos à praia antes das dez. A Comporta a essa hora é outra coisa — a areia ainda fria, quase ninguém, apenas o som das ondas e os corvos-marinhos a pescar.</p>
+      </div>
+
+      <div class="photo-asym">
+        <div class="photo-asym-main photo-clickable" data-photo-id="ph-sea" data-caption="Praia de Comporta, manhã cedo">
+          <div class="ph ph-sea photo-asym-main-img"></div>
+        </div>
+        <div class="photo-asym-stack">
+          <div class="photo-asym-stack-item photo-clickable" data-photo-id="ph-dune" data-caption="Dunas da Comporta">
+            <div class="ph ph-dune photo-asym-stack-img"></div>
+          </div>
+          <div class="photo-asym-stack-item photo-clickable" data-photo-id="ph-flower" data-caption="Flores silvestres">
+            <div class="ph ph-flower photo-asym-stack-img"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pull-quote">
+        <div class="pull-quote-text">A praia a essa hora é outra coisa — a areia ainda fria, quase ninguém.</div>
+        <div class="pull-quote-author">Nota do dia · 4 Ago 2024</div>
+      </div>
+
+      <div class="photo-grid photo-grid-3">
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-morning" data-caption="Manhã na praia">
+          <div class="ph ph-morning photo-grid-item-img"></div>
+        </div>
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-sea" data-caption="Mar azul">
+          <div class="ph ph-sea photo-grid-item-img"></div>
+        </div>
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-golden" data-caption="Hora dourada">
+          <div class="ph ph-golden photo-grid-item-img"></div>
+        </div>
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-dune" data-caption="Dunas">
+          <div class="ph ph-dune photo-grid-item-img"></div>
+        </div>
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-sunset" data-caption="Pôr-do-sol na praia">
+          <div class="ph ph-sunset photo-grid-item-img"></div>
+        </div>
+        <div class="photo-grid-item photo-clickable" data-photo-id="ph-kids" data-caption="Os miúdos">
+          <div class="ph ph-kids photo-grid-item-img"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: CAVALOS -->
+    <section id="passeio" class="section">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-label">Dia 5 · Cavalos &amp; Pinhais</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="text-block">
+        <h2>Pelo pinhal</h2>
+        <p>A Ana insistiu nos cavalos. Tinha razão. Fizemos o percurso pelo pinhal até à lagoa — duas horas a passo, com os pinheiros a filtrar a luz do meio-dia. <strong>Os miúdos nem se lembraram de pedir o telemóvel.</strong></p>
+      </div>
+
+      <!-- MAP -->
+      <div class="map-block">
+        <div class="map-header">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a4 4 0 010 8A4 4 0 018 2z"/><path d="M8 14s-5-4-5-6.5a5 5 0 0110 0C13 10 8 14 8 14z"/><circle cx="8" cy="7" r="1.5"/></svg>
+          <div class="map-header-text">
+            <div class="map-title">Percurso de Cavalos</div>
+            <div class="map-subtitle">Comporta → Pinhal da Comporta → Lagoa de Sancha · ~9 km</div>
+          </div>
+        </div>
+        <div class="map-canvas">
+          <!-- Simulated roads -->
+          <div class="map-road" style="width:2px;height:100%;left:30%;top:0;"></div>
+          <div class="map-road" style="width:100%;height:2px;top:40%;left:0;"></div>
+          <div class="map-road" style="width:2px;height:60%;left:60%;top:20%;transform:rotate(15deg);"></div>
+          <!-- Route line SVG -->
+          <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 900 280" preserveAspectRatio="none">
+            <path d="M 200 220 C 250 200, 300 180, 360 160 C 420 140, 480 120, 540 100 C 600 80, 650 90, 700 110" 
+                  fill="none" stroke="#c4795a" stroke-width="2.5" stroke-dasharray="6 4" opacity="0.7"/>
+          </svg>
+          <!-- Pins -->
+          <div class="map-pin" style="left:22%;top:82%;">
+            <div class="map-pin-icon"></div>
+            <div class="map-pin-label">Comporta</div>
+          </div>
+          <div class="map-pin" style="left:78%;top:40%;">
+            <div class="map-pin-icon" style="background:var(--ink);box-shadow:0 2px 8px rgba(26,24,20,0.3);"></div>
+            <div class="map-pin-label">Lagoa de Sancha</div>
+          </div>
+        </div>
+        <div class="map-attribution">
+          <span>© OpenStreetMap contributors</span>
+          <span>Leaflet · 2 pontos · rota gerada automaticamente</span>
+        </div>
+      </div>
+
+      <div class="photo-duo">
+        <div class="photo-duo-item photo-clickable" data-photo-id="ph-horse" data-caption="Cavalos no pinhal">
+          <div class="ph ph-horse photo-duo-item-img"></div>
+        </div>
+        <div class="photo-duo-item photo-clickable" data-photo-id="ph-road" data-caption="Caminho pelo pinhal">
+          <div class="ph ph-road photo-duo-item-img"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: MESA -->
+    <section id="mesa" class="section">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-label">Dia 6 · À Mesa</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="text-block">
+        <h2>Almoços que duram até às seis</h2>
+        <p>Há uma versão das férias em que os almoços começam ao meio-dia e terminam ao fim da tarde. Esta foi essa versão. Arroz de lingueirão, vinho branco frio, sombra de um chapéu de palha enorme e <em>ninguém com pressa</em>.</p>
+      </div>
+
+      <div class="photo-full photo-clickable" data-photo-id="ph-table" data-caption="Almoço na esplanada · Restaurante Comporta">
+        <div class="ph ph-table photo-full-img" style="height:340px;"></div>
+        <div class="photo-caption">
+          Almoço na esplanada · Restaurante Comporta
+          <span class="photo-caption-loc">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a4.5 4.5 0 010 9A4.5 4.5 0 018 2z"/><circle cx="8" cy="7" r="1.5"/></svg>
+            Comporta, Setúbal
+          </span>
+        </div>
+      </div>
+
+      <!-- VIDEO BLOCK -->
+      <div class="video-block" style="margin-top:2rem;">
+        <div class="video-bg ph-table"></div>
+        <div class="video-play">
+          <div class="video-play-btn">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div class="video-label">O brinde · 0:34</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: ÚLTIMA NOITE -->
+    <section id="ultima" class="section">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-label">Dia 7 · Última Noite</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="text-block">
+        <h2>A noite que ficou</h2>
+        <p>Na última noite ficámos todos no terraço até tarde. As crianças adormeceram nas cadeiras e nós continuámos a falar — daquelas conversas que só acontecem quando não há mais nada para fazer, quando toda a agenda acabou.</p>
+        <p>É por isso que existem as férias.</p>
+      </div>
+
+      <div class="photo-asym" style="grid-template-columns:1fr 2fr;">
+        <div class="photo-asym-stack">
+          <div class="photo-asym-stack-item photo-clickable" data-photo-id="ph-night" data-caption="Noite no terraço">
+            <div class="ph ph-night photo-asym-stack-img" style="min-height:160px;"></div>
+          </div>
+          <div class="photo-asym-stack-item photo-clickable" data-photo-id="ph-morning" data-caption="Última manhã">
+            <div class="ph ph-morning photo-asym-stack-img" style="min-height:160px;"></div>
+          </div>
+        </div>
+        <div class="photo-asym-main photo-clickable" data-photo-id="ph-sunset" data-caption="Pôr-do-sol da última noite · Comporta">
+          <div class="ph ph-sunset photo-asym-main-img"></div>
+        </div>
+      </div>
+
+      <div class="pull-quote">
+        <div class="pull-quote-text">Daquelas conversas que só acontecem quando não há mais nada para fazer.</div>
+        <div class="pull-quote-author">Última noite · 9 Ago 2024</div>
+      </div>
+    </section>
+
+    <!-- COMMENTS -->
+    <section class="section visible" style="padding-top:2rem;">
+      <div class="comments-section">
+        <div class="comments-heading">Comentários</div>
+        <div class="comments-count">5 comentários nesta story</div>
+
+        <div class="comment-list">
+          <div class="comment">
+            <div class="comment-avatar">MA</div>
+            <div class="comment-body">
+              <div class="comment-meta">
+                <span class="comment-author">Maria Alves</span>
+                <span class="comment-date">há 3 dias</span>
+              </div>
+              <div class="comment-text">Que saudades de vocês e deste lugar! Aquela foto do almoço ficou perfeita — eu consigo quase ouvir o barulho dos copos. 🥂</div>
+            </div>
+          </div>
+
+          <div class="comment" style="animation-delay:60ms">
+            <div class="comment-avatar">JF</div>
+            <div class="comment-body">
+              <div class="comment-meta">
+                <span class="comment-author">João Ferreira</span>
+                <span class="comment-date">há 2 dias</span>
+                <span class="comment-photo-ref">📍 Dias de Praia</span>
+              </div>
+              <div class="comment-text">Os miúdos estão enormes! Quando repetimos? A semana foi rápida demais.</div>
+            </div>
+          </div>
+
+          <div class="comment" style="animation-delay:120ms">
+            <div class="comment-avatar">IM</div>
+            <div class="comment-body">
+              <div class="comment-meta">
+                <span class="comment-author">Inês Monteiro</span>
+                <span class="comment-date">há 1 dia</span>
+              </div>
+              <div class="comment-text">Ricardo, as fotos ficaram lindíssimas. Consegues partilhar a resolução original da do pôr-do-sol? Quero pôr em tela!</div>
+            </div>
+          </div>
+
+          <div class="comment" style="animation-delay:180ms">
+            <div class="comment-avatar">TR</div>
+            <div class="comment-body">
+              <div class="comment-meta">
+                <span class="comment-author">Teresa Rodrigues</span>
+                <span class="comment-date">há 18 horas</span>
+                <span class="comment-photo-ref">📍 Cavalos &amp; Pinhais</span>
+              </div>
+              <div class="comment-text">Adorei o percurso dos cavalos. A Marta ainda fala nisso todos os dias. "Quando vamos outra vez aos cavalos da Comporta?"</div>
+            </div>
+          </div>
+
+          <div class="comment" style="animation-delay:240ms">
+            <div class="comment-avatar">RF</div>
+            <div class="comment-body">
+              <div class="comment-meta">
+                <span class="comment-author">Ricardo Fonseca</span>
+                <span class="comment-date">há 12 horas</span>
+                <span style="font-size:0.72rem;font-weight:500;color:var(--accent);background:var(--accent-pale);padding:1px 8px;border-radius:10px;">Autor</span>
+              </div>
+              <div class="comment-text">Inês — vou enviar o ficheiro RAW por mensagem. E João — já estou a pensar em Setembro! 🌊</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <div class="comment-form-wrapper">
+          <div class="comment-form-title">Deixar um comentário</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nome</label>
+              <input class="form-input" type="text" placeholder="O teu nome">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email <span style="font-weight:300;text-transform:none;letter-spacing:0;">(opcional)</span></label>
+              <input class="form-input" type="email" placeholder="Não é publicado">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mensagem</label>
+            <textarea class="form-input" rows="3" placeholder="O teu comentário…"></textarea>
+          </div>
+          <div class="form-footer">
+            <div class="form-note">O teu nome será publicado. O email não.</div>
+            <button class="btn-submit">Publicar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /story-body -->
+
+  <!-- FOOTER -->
+  <footer class="story-footer">
+    <a href="#" class="story-footer-brand">
+      <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="10" rx="0.5"/><rect x="11" y="2" width="7" height="6" rx="0.5" opacity="0.6"/><rect x="11" y="10" width="7" height="8" rx="0.5" opacity="0.4"/><rect x="2" y="14" width="7" height="4" rx="0.5" opacity="0.3"/></svg>
+      Criado com Memoire
+    </a>
+    <div class="story-footer-info">
+      94 fotografias · 3 álbuns Immich<br>
+      Criado por Ricardo Fonseca · Agosto 2024
+    </div>
+  </footer>
+
+</main>
+
+<script>
+// ── Scroll-based section reveal ──
+const sections = document.querySelectorAll('.section');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold: 0.08 });
+
+sections.forEach(s => observer.observe(s));
+
+// ── Side nav active state ──
+const navItems = document.querySelectorAll('.nav-item');
+const sectionEls = ['inicio','chegada','praia','passeio','mesa','ultima']
+  .map(id => document.getElementById(id))
+  .filter(Boolean);
+
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      navItems.forEach(n => {
+        n.classList.toggle('active', n.dataset.section === id);
+      });
+    }
+  });
+}, { threshold: 0.4 });
+
+sectionEls.forEach(s => navObserver.observe(s));
+
+// ── Lightbox with per-photo comments ──
+
+// Seed comments per photo id
+const photoComments = {
+  'ph-golden': [
+    { name: 'Maria Alves',    initials: 'MA', date: 'há 2 dias',   text: 'Que luz incrível! Parece uma pintura.' },
+    { name: 'João Ferreira',  initials: 'JF', date: 'há 1 dia',    text: 'Consegues enviar a original? Quero imprimir.' },
+  ],
+  'ph-sea': [
+    { name: 'Inês Monteiro',  initials: 'IM', date: 'há 3 dias',   text: 'A cor do mar ficou perfeita nesta.' },
+  ],
+  'ph-sunset': [
+    { name: 'Teresa Rodrigues', initials: 'TR', date: 'há 1 dia',  text: 'O pôr-do-sol da última noite... que saudades.' },
+    { name: 'Maria Alves',    initials: 'MA', date: 'há 20 horas', text: 'Esta merecia mesmo uma moldura grande.' },
+    { name: 'Ricardo Fonseca', initials: 'RF', date: 'há 12 horas', text: 'Obrigado! Foi o momento mais especial da semana.' },
+  ],
+  'ph-horse': [
+    { name: 'Teresa Rodrigues', initials: 'TR', date: 'há 2 dias', text: 'A Marta ainda fala nisto todos os dias 😄' },
+  ],
+};
+
+const lightbox     = document.getElementById('lightbox');
+const lightboxImg  = document.getElementById('lightboxImg');
+const lightboxCap  = document.getElementById('lightboxCaption');
+const lightboxClose= document.getElementById('lightboxClose');
+const lcScroll     = document.getElementById('lcScroll');
+const lcCount      = document.getElementById('lcCount');
+const lcName       = document.getElementById('lcName');
+const lcText       = document.getElementById('lcText');
+const lcSubmit     = document.getElementById('lcSubmit');
+
+let currentPhotoId  = null;
+let allPhotos       = [];  // [{id, caption}] built from DOM
+let currentIndex    = 0;
+
+// Build photo registry from all clickable elements
+document.querySelectorAll('[data-photo-id]').forEach(el => {
+  allPhotos.push({ id: el.dataset.photoId, caption: el.dataset.caption || '' });
+});
+
+// ── Delegated click handler ──
+document.addEventListener('click', e => {
+  const target = e.target.closest('[data-photo-id]');
+  if (target && !lightbox.classList.contains('open')) {
+    openLightbox(target.dataset.photoId, target.dataset.caption || '');
+  }
+});
+
+function renderComments(photoId) {
+  const comments = photoComments[photoId] || [];
+  lcCount.textContent = comments.length;
+
+  if (comments.length === 0) {
+    lcScroll.innerHTML = `
+      <div class="lc-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <div class="lc-empty-text">Ainda não há comentários.<br>Sê o primeiro!</div>
+      </div>`;
+    return;
+  }
+
+  lcScroll.innerHTML = comments.map((c, i) => `
+    <div class="lc-comment" style="animation-delay:${i * 50}ms">
+      <div class="lc-avatar">${c.initials}</div>
+      <div class="lc-body">
+        <div class="lc-meta">
+          <span class="lc-author">${c.name}</span>
+          <span class="lc-date">${c.date}</span>
+        </div>
+        <div class="lc-text">${c.text}</div>
+      </div>
+    </div>`).join('');
+}
+
+function openLightbox(photoId, caption) {
+  currentPhotoId = photoId;
+  currentIndex   = allPhotos.findIndex(p => p.id === photoId);
+
+  lightboxImg.className = 'ph ' + photoId;
+  lightboxImg.style.cssText = 'width:100%;height:100%;min-height:320px;border-radius:4px;';
+  lightboxCap.textContent = caption || '';
+
+  renderComments(photoId);
+  lcName.value = '';
+  lcText.value = '';
+
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => lcScroll.scrollTop = 0, 50);
+}
+
+function navigateLightbox(dir) {
+  if (allPhotos.length === 0) return;
+  currentIndex = (currentIndex + dir + allPhotos.length) % allPhotos.length;
+  const p = allPhotos[currentIndex];
+
+  // Animate out/in
+  lightboxImg.style.opacity = '0';
+  lightboxImg.style.transform = `translateX(${dir > 0 ? '-20px' : '20px'})`;
+  setTimeout(() => {
+    openLightbox(p.id, p.caption);
+    lightboxImg.style.opacity = '0';
+    lightboxImg.style.transform = `translateX(${dir > 0 ? '20px' : '-20px'})`;
+    requestAnimationFrame(() => {
+      lightboxImg.style.transition = 'opacity 250ms ease, transform 300ms cubic-bezier(0.16,1,0.3,1)';
+      lightboxImg.style.opacity = '1';
+      lightboxImg.style.transform = 'translateX(0)';
+    });
+  }, 120);
+}
+
+// Submit comment
+lcSubmit.addEventListener('click', () => {
+  const name = lcName.value.trim();
+  const text = lcText.value.trim();
+  if (!name || !text) {
+    if (!name) lcName.style.borderColor = 'var(--error)';
+    if (!text) lcText.style.borderColor = 'var(--error)';
+    return;
+  }
+  lcName.style.borderColor = '';
+  lcText.style.borderColor = '';
+
+  if (!photoComments[currentPhotoId]) photoComments[currentPhotoId] = [];
+  photoComments[currentPhotoId].push({
+    name, initials: name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(),
+    date: 'agora mesmo', text
+  });
+
+  lcName.value = '';
+  lcText.value = '';
+  renderComments(currentPhotoId);
+  setTimeout(() => lcScroll.scrollTop = lcScroll.scrollHeight, 50);
+});
+
+document.getElementById('lightboxPrev').addEventListener('click', () => navigateLightbox(-1));
+document.getElementById('lightboxNext').addEventListener('click', () => navigateLightbox(1));
+lightboxClose.addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (!lightbox.classList.contains('open')) return;
+  if (e.key === 'Escape')      closeLightbox();
+  if (e.key === 'ArrowRight')  navigateLightbox(1);
+  if (e.key === 'ArrowLeft')   navigateLightbox(-1);
+});
+
+function closeLightbox() {
+  lightbox.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── Topbar opacity on scroll ──
+const topbar = document.querySelector('.topbar');
+window.addEventListener('scroll', () => {
+  topbar.style.borderBottomColor = window.scrollY > 10
+    ? 'color-mix(in srgb, var(--paper-deep) 80%, transparent)'
+    : 'color-mix(in srgb, var(--paper-deep) 60%, transparent)';
+}, { passive: true });
+</script>
+</body>
+</html>

@@ -9,12 +9,6 @@ const LogomarkSVG = () => (
   </svg>
 );
 
-const SearchIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-  </svg>
-);
-
 const ShareIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -23,7 +17,14 @@ const ShareIcon = () => (
   </svg>
 );
 
-export default function ViewerTopbar({ onSearchToggle, searchVisible, storyTitle }) {
+const PeopleIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+  </svg>
+);
+
+export default function ViewerTopbar({ onPeopleToggle, peopleVisible, storyTitle }) {
   const [scrolled, setScrolled] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -71,20 +72,23 @@ export default function ViewerTopbar({ onSearchToggle, searchVisible, storyTitle
 
       {/* Right buttons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <button
-          onClick={onSearchToggle}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: searchVisible ? 'var(--paper-deep)' : 'var(--paper-warm)',
-            border: `1px solid ${searchVisible ? 'var(--ink-faint)' : 'var(--paper-deep)'}`,
-            borderRadius: 20, padding: '5px 12px',
-            fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 300,
-            color: 'var(--ink-muted)', cursor: 'pointer',
-            transition: 'all 200ms var(--ease-out)',
-          }}
-        >
-          <SearchIcon /> Pesquisar
-        </button>
+        {onPeopleToggle && (
+          <button
+            onClick={onPeopleToggle}
+            title="Filtrar por pessoa"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: peopleVisible ? 'var(--paper-deep)' : 'var(--paper-warm)',
+              border: `1px solid ${peopleVisible ? 'var(--ink-faint)' : 'var(--paper-deep)'}`,
+              borderRadius: 20, padding: '5px 12px',
+              fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 300,
+              color: 'var(--ink-muted)', cursor: 'pointer',
+              transition: 'all 200ms var(--ease-out)',
+            }}
+          >
+            <PeopleIcon /> Pessoas
+          </button>
+        )}
 
         <button
           onClick={handleShare}

@@ -146,9 +146,99 @@ app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
     for (const h of forward) {
       if (response.headers[h]) res.setHeader(h, response.headers[h]);
     }
+    if (req.query.download) {
+      res.setHeader('Content-Disposition', 'attachment');
+    }
     response.data.pipe(res);
   } catch (err) {
     res.status(err.response?.status || 502).end();
+  }
+});
+
+// ── Helpers ───────────────────────────────────────────────────────
+function getStoryAssetIds(storyId) {
+  const blocks = db.prepare('SELECT content FROM blocks WHERE story_id = ?').all(storyId);
+  const ids = new Set();
+  blocks.forEach((block) => {
+    try {
+      const c = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
+      if (c.asset_id) ids.add(c.asset_id);
+      if (Array.isArray(c.asset_ids)) c.asset_ids.forEach((id) => ids.add(id));
+    } catch {}
+  });
+  return ids;
+}
+
+function immichPublicClient() {
+  const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+  return axios.create({ baseURL: `${baseURL}/api`, headers: { 'x-api-key': process.env.IMMICH_API_KEY } });
+}
+
+// GET /api/public/:slug/people
+app.get('/api/public/:slug/people', async (req, res) => {
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  if (!story) return res.json([]);
+
+  const storyAssetIds = getStoryAssetIds(story.id);
+  if (storyAssetIds.size === 0) return res.json([]);
+
+  try {
+    const client = immichPublicClient();
+    const assetDetails = await Promise.all(
+      [...storyAssetIds].map((id) => client.get(`/assets/${id}`).then((r) => r.data).catch(() => null))
+    );
+    const peopleMap = new Map();
+    assetDetails.forEach((asset) => {
+      if (!asset?.people) return;
+      asset.people.forEach((person) => {
+        if (!person.isHidden && !peopleMap.has(person.id)) {
+          peopleMap.set(person.id, person);
+        }
+      });
+    });
+    res.json([...peopleMap.values()]);
+  } catch {
+    res.json([]);
+  }
+});
+
+// GET /api/public/:slug/people/:personId/thumb
+app.get('/api/public/:slug/people/:personId/thumb', async (req, res) => {
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  if (!story) return res.status(404).end();
+
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const response = await axios.get(`${baseURL}/api/people/${req.params.personId}/thumbnail`, {
+      headers: { 'x-api-key': process.env.IMMICH_API_KEY },
+      responseType: 'stream',
+    });
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    response.data.pipe(res);
+  } catch (err) {
+    res.status(err.response?.status || 502).end();
+  }
+});
+
+// GET /api/public/:slug/people/:personId/assets  — asset IDs for person, scoped to story
+app.get('/api/public/:slug/people/:personId/assets', async (req, res) => {
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  if (!story) return res.json([]);
+
+  const storyAssetIds = getStoryAssetIds(story.id);
+  if (storyAssetIds.size === 0) return res.json([]);
+
+  try {
+    const { data } = await immichPublicClient().post('/search/metadata', {
+      personIds: [req.params.personId],
+      size: 500,
+      page: 1,
+    });
+    const ids = (data.assets?.items || []).map((a) => a.id).filter((id) => storyAssetIds.has(id));
+    res.json(ids);
+  } catch {
+    res.json([]);
   }
 });
 

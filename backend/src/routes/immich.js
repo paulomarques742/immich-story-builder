@@ -95,6 +95,50 @@ router.get('/assets/:assetId/original', thumbAuth, requireAuth, async (req, res)
   }
 });
 
+// GET /api/immich/people
+router.get('/people', requireAuth, async (req, res) => {
+  try {
+    const { data } = await immichClient().get('/people', { params: { size: 500, withHidden: false } });
+    const people = (data.people || []).filter((p) => !p.isHidden);
+    res.json(people);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
+});
+
+// GET /api/immich/people/:personId/thumb
+router.get('/people/:personId/thumb', thumbAuth, requireAuth, async (req, res) => {
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const response = await axios.get(
+      `${baseURL}/api/people/${req.params.personId}/thumbnail`,
+      {
+        headers: { 'x-api-key': process.env.IMMICH_API_KEY },
+        responseType: 'stream',
+      }
+    );
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    response.data.pipe(res);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
+});
+
+// GET /api/immich/people/:personId/assets  — asset IDs for a person
+router.get('/people/:personId/assets', requireAuth, async (req, res) => {
+  try {
+    const { data } = await immichClient().post('/search/metadata', {
+      personIds: [req.params.personId],
+      size: 500,
+      page: 1,
+    });
+    const ids = (data.assets?.items || []).map((a) => a.id);
+    res.json(ids);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
+});
+
 // GET /api/immich/assets/:assetId/exif  — GPS + EXIF metadata
 router.get('/assets/:assetId/exif', requireAuth, async (req, res) => {
   try {

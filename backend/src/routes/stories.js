@@ -67,7 +67,7 @@ router.put('/:id', requireAuth, (req, res) => {
   if (!story) return res.status(404).json({ error: 'Not found' });
   if (!canEdit(req.user, story)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { title, description, cover_asset_id, immich_album_ids, sync_mode, slug } = req.body;
+  const { title, description, cover_asset_id, immich_album_ids, sync_mode, slug, theme } = req.body;
 
   // validate new slug uniqueness if changing
   if (slug && slug !== story.slug) {
@@ -94,6 +94,14 @@ router.put('/:id', requireAuth, (req, res) => {
     slug || null,
     story.id
   );
+
+  // theme updated separately so null (clear) is distinguishable from "not sent"
+  if (theme !== undefined) {
+    db.prepare('UPDATE stories SET theme = ? WHERE id = ?').run(
+      theme === null ? null : JSON.stringify(theme),
+      story.id
+    );
+  }
 
   res.json(db.prepare('SELECT * FROM stories WHERE id = ?').get(story.id));
 });

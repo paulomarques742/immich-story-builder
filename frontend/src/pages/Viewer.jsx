@@ -8,6 +8,8 @@ import Lightbox from '../components/viewer/Lightbox.jsx';
 import ViewerTopbar from '../components/viewer/ViewerTopbar.jsx';
 import ViewerFooter from '../components/viewer/ViewerFooter.jsx';
 import GlobalComments from '../components/viewer/GlobalComments.jsx';
+import PeopleFilter from '../components/viewer/PeopleFilter.jsx';
+import { buildThemeVars, getTheme } from '../lib/themes.js';
 
 function parse(block) {
   try { return typeof block.content === 'string' ? JSON.parse(block.content) : block.content; }
@@ -55,9 +57,13 @@ export default function Viewer() {
   const [blocks, setBlocks] = useState([]);
   const [locked, setLocked] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [search, setSearch] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
+  const [peopleVisible, setPeopleVisible] = useState(false);
+  const [selectedPersonIds, setSelectedPersonIds] = useState(new Set());
+  const [personAssetIds, setPersonAssetIds] = useState(new Set());
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [counts, setCounts] = useState({ likes: {}, comments: {} });
+  const [likedByMe, setLikedByMe] = useState({});
+  const [fingerprint, setFingerprint] = useState('');
   const sectionsRef = useRef([]);
 
   function storyToken() {
@@ -82,6 +88,30 @@ export default function Viewer() {
 
   useEffect(() => { load(storyToken()); }, [slug]);
 
+  // Fingerprint anónimo persistido no localStorage
+  useEffect(() => {
+    let fp = localStorage.getItem('mv_fingerprint');
+    if (!fp) {
+      fp = (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
+      localStorage.setItem('mv_fingerprint', fp);
+    }
+    setFingerprint(fp);
+  }, []);
+
+  // Carregar likes dados pelo utilizador neste browser
+  useEffect(() => {
+    if (!slug) return;
+    setLikedByMe(JSON.parse(localStorage.getItem(`mv_liked_${slug}`) || '{}'));
+  }, [slug]);
+
+  // Buscar contagens de likes e comentários
+  useEffect(() => {
+    if (!slug || !blocks.length) return;
+    axios.get(`/api/public/${slug}/counts`)
+      .then((r) => setCounts(r.data))
+      .catch(() => {});
+  }, [slug, blocks]);
+
   // Scroll reveal via IntersectionObserver
   useEffect(() => {
     if (blocks.length === 0) return;
@@ -102,15 +132,87 @@ export default function Viewer() {
     if (story?.title) document.title = `${story.title} · Memoire`;
   }, [story]);
 
+  // Load Google Fonts for the story theme
+  useEffect(() => {
+    if (!story?.theme) return;
+    const config = typeof story.theme === 'string' ? JSON.parse(story.theme) : story.theme;
+    const theme = getTheme(config.id);
+    if (!theme.googleFontsUrl) return;
+    const linkId = `theme-font-${theme.id}`;
+    if (document.getElementById(linkId)) return;
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = theme.googleFontsUrl;
+    document.head.appendChild(link);
+  }, [story?.theme]);
+
+  function handleLike(assetId) {
+    if (!fingerprint) return;
+    const wasLiked = !!likedByMe[assetId];
+    // Optimistic update
+    const newLiked = { ...likedByMe };
+    if (wasLiked) delete newLiked[assetId]; else newLiked[assetId] = true;
+    setLikedByMe(newLiked);
+    localStorage.setItem(`mv_liked_${slug}`, JSON.stringify(newLiked));
+    setCounts((prev) => ({
+      ...prev,
+      likes: { ...prev.likes, [assetId]: Math.max(0, (prev.likes[assetId] || 0) + (wasLiked ? -1 : 1)) },
+    }));
+
+    axios.post(`/api/public/${slug}/likes/${assetId}`, { fingerprint })
+      .then((r) => {
+        setCounts((prev) => ({ ...prev, likes: { ...prev.likes, [assetId]: r.data.count } }));
+        const confirmed = { ...newLiked };
+        if (r.data.liked) confirmed[assetId] = true; else delete confirmed[assetId];
+        setLikedByMe(confirmed);
+        localStorage.setItem(`mv_liked_${slug}`, JSON.stringify(confirmed));
+      })
+      .catch(() => {
+        // Rollback on error
+        setLikedByMe(likedByMe);
+        localStorage.setItem(`mv_liked_${slug}`, JSON.stringify(likedByMe));
+        setCounts((prev) => ({
+          ...prev,
+          likes: { ...prev.likes, [assetId]: Math.max(0, (prev.likes[assetId] || 0) + (wasLiked ? 1 : -1)) },
+        }));
+      });
+  }
+
   function handleUnlock(token) {
     setLocked(false);
     load(token);
   }
 
-  function toggleSearch() {
-    setSearchVisible((v) => {
-      if (v) setSearch('');
+  // Fetch asset IDs whenever selected people change (uses public endpoint)
+  useEffect(() => {
+    if (selectedPersonIds.size === 0) {
+      setPersonAssetIds(new Set());
+      return;
+    }
+    Promise.all([...selectedPersonIds].map((id) =>
+      axios.get(`/api/public/${slug}/people/${id}/assets`).then((r) => r.data).catch(() => [])
+    )).then((results) => {
+      const sets = results.map((ids) => new Set(ids));
+      const intersection = [...sets[0]].filter((id) => sets.every((s) => s.has(id)));
+      setPersonAssetIds(new Set(intersection));
+    });
+  }, [selectedPersonIds, slug]);
+
+  function togglePeople() {
+    setPeopleVisible((v) => {
+      if (v) {
+        setSelectedPersonIds(new Set());
+      }
       return !v;
+    });
+  }
+
+  function togglePerson(personId) {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev);
+      next.has(personId) ? next.delete(personId) : next.add(personId);
+      return next;
     });
   }
 
@@ -134,58 +236,38 @@ export default function Viewer() {
 
   if (locked) return <UnlockModal slug={slug} onUnlock={handleUnlock} />;
 
-  // Separate hero from body blocks
-  const heroBlock = blocks.find((b) => b.type === 'hero');
-  const bodyBlocks = blocks.filter((b) => b.type !== 'hero');
+  // Only the first hero gets the full-screen top treatment; subsequent heroes render inline
+  const firstHeroIdx = blocks.findIndex((b) => b.type === 'hero');
+  const heroBlock = firstHeroIdx >= 0 ? blocks[firstHeroIdx] : null;
+  const bodyBlocks = blocks.filter((_, i) => i !== firstHeroIdx);
   const sections = groupIntoSections(bodyBlocks);
   const photoRegistry = buildPhotoRegistry(blocks);
 
   // Count total photos for footer
   const photoCount = photoRegistry.length;
 
+  const themeVars = buildThemeVars(story.theme);
+
   return (
-    <div className="mv-viewer">
+    <div className="mv-viewer" style={themeVars}>
       {/* Topbar */}
       <ViewerTopbar
-        onSearchToggle={toggleSearch}
-        searchVisible={searchVisible}
+        onPeopleToggle={togglePeople}
+        peopleVisible={peopleVisible}
         storyTitle={story.title}
       />
 
-      {/* Search bar (below topbar when visible) */}
-      {searchVisible && (
-        <div style={{
-          position: 'fixed', top: 52, left: 0, right: 0, zIndex: 99,
-          background: 'color-mix(in srgb, var(--paper-warm) 95%, transparent)',
-          backdropFilter: 'blur(8px)',
-          borderBottom: '1px solid var(--paper-deep)',
-          padding: '0.6rem 2rem',
-          display: 'flex', alignItems: 'center', gap: '0.75rem',
-          animation: 'fadeUp 200ms var(--ease-out) both',
-        }}>
-          <input
-            autoFocus
-            type="search"
-            placeholder="Pesquisar na story…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              flex: 1, border: 'none', outline: 'none',
-              background: 'transparent', fontFamily: 'var(--font-body)',
-              fontSize: '0.9rem', fontWeight: 300, color: 'var(--ink)',
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 14, cursor: 'pointer', padding: '0 4px' }}
-            >✕</button>
-          )}
-        </div>
+      {/* People filter panel */}
+      {peopleVisible && (
+        <PeopleFilter
+          slug={slug}
+          selectedIds={selectedPersonIds}
+          onToggle={togglePerson}
+        />
       )}
 
       {/* Side navigation */}
-      <StoryNav blocks={bodyBlocks} visible={!search} />
+      <StoryNav blocks={bodyBlocks} visible={true} />
 
       {/* Hero */}
       {heroBlock && (
@@ -194,7 +276,12 @@ export default function Viewer() {
           story={story}
           onPhotoOpen={(idx) => setLightboxIndex(idx)}
           photoRegistry={photoRegistry}
-          searchTerm={search}
+          
+          personAssetIds={personAssetIds}
+          likeCounts={counts.likes}
+          commentCounts={counts.comments}
+          likedByMe={likedByMe}
+          onLike={handleLike}
         />
       )}
 
@@ -213,7 +300,12 @@ export default function Viewer() {
                 story={story}
                 onPhotoOpen={(idx) => setLightboxIndex(idx)}
                 photoRegistry={photoRegistry}
-                searchTerm={search}
+                
+                personAssetIds={personAssetIds}
+                likeCounts={counts.likes}
+                commentCounts={counts.comments}
+                likedByMe={likedByMe}
+                onLike={handleLike}
               />
             ))}
           </section>
