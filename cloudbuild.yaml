@@ -2,7 +2,7 @@ substitutions:
   _REGION: europe-west1
   _SERVICE: memoire
   _REPO: memoire                  # nome do repositório no Artifact Registry
-  _GCS_BUCKET: memoire-data       # bucket GCS para persistência do SQLite
+  _GCS_BUCKET: memoire-immich-data  # bucket GCS para persistência do SQLite
   _MEMORY: 512Mi
   _CPU: "1"
 

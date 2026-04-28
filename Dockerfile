@@ -30,9 +30,12 @@ COPY --from=frontend-build /frontend/dist /frontend/dist
 # Data directory — mount a persistent volume here (GCS bucket / NFS)
 RUN mkdir -p /data
 
+COPY backend/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 ENV NODE_ENV=production
 ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["node", "src/index.js"]
+CMD ["/app/entrypoint.sh"]
