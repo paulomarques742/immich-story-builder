@@ -30,6 +30,9 @@ if (!process.env.IMMICH_API_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Cloud Run / GCP load balancer proxy (needed for rate limiting and real IPs)
+app.set('trust proxy', 1);
+
 // Allowed origins: PUBLIC_URL + FRONTEND_URL + localhost dev, all comma-separable
 const rawOrigins = [
   process.env.PUBLIC_URL,
@@ -41,14 +44,23 @@ const allowedOrigins = [...new Set(rawOrigins)];
 
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow no-origin (same-origin non-browser) and configured origins.
+    // Also allow any origin that matches the server's own host (same-origin fetch).
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 });
 
 // Apply CORS only to /api routes — static assets don't need it
-app.use('/api', corsMiddleware);
+app.use('/api', (req, res, next) => {
+  // For same-origin requests (origin == host), skip CORS check entirely
+  const origin = req.headers.origin;
+  const host = `${req.protocol}://${req.get('host')}`;
+  if (origin && origin === host) return next();
+  corsMiddleware(req, res, next);
+});
 app.use(express.json());
 
 // Rate limiters
