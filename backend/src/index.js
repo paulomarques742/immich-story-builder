@@ -110,6 +110,48 @@ app.get('/api/public/:slug/assets/:assetId/thumb', async (req, res) => {
   }
 });
 
+// GET /api/public/:slug/assets/:assetId/original  — public video proxy (supports Range)
+app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
+  const { slug, assetId } = req.params;
+
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(slug);
+  if (!story) return res.status(404).end();
+
+  const blocks = db.prepare('SELECT content FROM blocks WHERE story_id = ?').all(story.id);
+  const allowed = blocks.some((block) => {
+    try {
+      const c = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
+      if (c.asset_id === assetId) return true;
+      if (Array.isArray(c.asset_ids) && c.asset_ids.includes(assetId)) return true;
+      return false;
+    } catch { return false; }
+  });
+  if (!allowed) return res.status(403).end();
+
+  const apiKey = process.env.IMMICH_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'No IMMICH_API_KEY configured on server' });
+
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const headers = { 'x-api-key': apiKey };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const response = await axios.get(`${baseURL}/api/assets/${assetId}/original`, {
+      headers,
+      responseType: 'stream',
+    });
+
+    res.status(response.status);
+    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+    for (const h of forward) {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
+    }
+    response.data.pipe(res);
+  } catch (err) {
+    res.status(err.response?.status || 502).end();
+  }
+});
+
 // GET /api/public/:slug/comments/:assetId
 app.get('/api/public/:slug/comments/:assetId', (req, res) => {
   const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
@@ -136,6 +178,54 @@ app.post('/api/public/:slug/comments/:assetId', (req, res) => {
   ).run(id, story.id, req.params.assetId, author_name.trim(), body.trim());
 
   res.status(201).json(db.prepare('SELECT id, author_name, body, created_at FROM comments WHERE id = ?').get(id));
+});
+
+// GET /api/public/:slug/counts — like + comment counts for all assets
+app.get('/api/public/:slug/counts', (req, res) => {
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  if (!story) return res.status(404).json({ error: 'Not found' });
+
+  const likeRows = db.prepare(
+    'SELECT asset_id, COUNT(*) as count FROM likes WHERE story_id = ? GROUP BY asset_id'
+  ).all(story.id);
+
+  const commentRows = db.prepare(
+    "SELECT asset_id, COUNT(*) as count FROM comments WHERE story_id = ? AND approved = 1 AND asset_id != '__story__' GROUP BY asset_id"
+  ).all(story.id);
+
+  const likes = {};
+  likeRows.forEach((r) => { likes[r.asset_id] = r.count; });
+  const comments = {};
+  commentRows.forEach((r) => { comments[r.asset_id] = r.count; });
+
+  res.json({ likes, comments });
+});
+
+// POST /api/public/:slug/likes/:assetId — toggle like
+app.post('/api/public/:slug/likes/:assetId', (req, res) => {
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  if (!story) return res.status(404).json({ error: 'Not found' });
+
+  const { fingerprint } = req.body;
+  if (!fingerprint?.trim()) return res.status(400).json({ error: 'fingerprint required' });
+
+  const fp = fingerprint.trim().slice(0, 128);
+  const existing = db.prepare(
+    'SELECT id FROM likes WHERE story_id = ? AND asset_id = ? AND fingerprint = ?'
+  ).get(story.id, req.params.assetId, fp);
+
+  if (existing) {
+    db.prepare('DELETE FROM likes WHERE id = ?').run(existing.id);
+  } else {
+    db.prepare('INSERT INTO likes (id, story_id, asset_id, fingerprint) VALUES (?, ?, ?, ?)')
+      .run(uuidv4(), story.id, req.params.assetId, fp);
+  }
+
+  const { count } = db.prepare(
+    'SELECT COUNT(*) as count FROM likes WHERE story_id = ? AND asset_id = ?'
+  ).get(story.id, req.params.assetId);
+
+  res.json({ liked: !existing, count });
 });
 
 // ── Production frontend ───────────────────────────────────────

@@ -24,6 +24,18 @@ router.get('/albums', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/immich/assets  (assets fora de álbuns — usa search/metadata)
+router.get('/assets', requireAuth, async (req, res) => {
+  try {
+    const body = { isNotInAlbum: true, size: 200, page: 1 };
+    if (req.query.type) body.type = req.query.type;
+    const { data } = await immichClient().post('/search/metadata', body);
+    res.json(data.assets?.items || []);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
+});
+
 // GET /api/immich/albums/:albumId/assets
 router.get('/albums/:albumId/assets', requireAuth, async (req, res) => {
   try {
@@ -61,7 +73,7 @@ router.get('/assets/:assetId/thumb', thumbAuth, requireAuth, async (req, res) =>
 });
 
 // GET /api/immich/assets/:assetId/original  (supports Range for video seeking)
-router.get('/assets/:assetId/original', requireAuth, async (req, res) => {
+router.get('/assets/:assetId/original', thumbAuth, requireAuth, async (req, res) => {
   try {
     const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
     const headers = { 'x-api-key': process.env.IMMICH_API_KEY };

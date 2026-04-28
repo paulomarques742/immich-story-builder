@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import AssetPicker from './AssetPicker.jsx';
 import api from '../../lib/api.js';
+import { thumbUrl } from '../../lib/immich.js';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function BlockEditor({ block, onChange }) {
   const [content, setContent] = useState({});
@@ -61,16 +65,21 @@ function HeroEditor({ content, update }) {
         </div>
         {content.asset_id && (
           <img
-            src={`/api/immich/assets/${content.asset_id}/thumb`}
+            src={thumbUrl(content.asset_id, 'preview')}
             alt=""
             style={s.preview}
           />
         )}
       </Field>
 
+      <Field label="Título">
+        <input style={s.input} value={content.title || ''}
+          onChange={(e) => update('title', e.target.value)} placeholder="Título opcional (deixa vazio para omitir)" />
+      </Field>
+
       <Field label="Caption">
         <input style={s.input} value={content.caption || ''}
-          onChange={(e) => update('caption', e.target.value)} placeholder="Texto opcional" />
+          onChange={(e) => update('caption', e.target.value)} placeholder="Subtítulo / legenda opcional" />
       </Field>
 
       <Field label="Altura">
@@ -101,6 +110,57 @@ function HeroEditor({ content, update }) {
   );
 }
 
+/* ── Sortable thumbnail ──────────────────────────────────────── */
+function SortableThumb({ id, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className="thumb-wrap"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : 1,
+        position: 'relative',
+        width: 62,
+        height: 62,
+        borderRadius: 6,
+        overflow: 'hidden',
+        flexShrink: 0,
+        cursor: 'grab',
+        touchAction: 'none',
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <img
+        src={thumbUrl(id, 'thumbnail')}
+        alt=""
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        draggable={false}
+      />
+      <button
+        className="thumb-remove"
+        style={{
+          position: 'absolute', top: 3, right: 3,
+          width: 18, height: 18,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'rgba(0,0,0,0.6)',
+          color: '#fff',
+          fontSize: 10,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0, lineHeight: 1,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onRemove(id); }}
+        title="Remover"
+      >✕</button>
+    </div>
+  );
+}
+
 /* ── Grid editor ─────────────────────────────────────────────── */
 const GRID_LAYOUTS = [
   { key: 'single',     label: 'Único',        icon: '▬',    cols: 1, aspect: 'landscape', hint: null },
@@ -121,6 +181,20 @@ function getLayoutKey(columns, aspect) {
 function GridEditor({ content, update, updateMany }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const activeLayout = getLayoutKey(content.columns || 3, content.aspect || 'square');
+  const assetIds = content.asset_ids || [];
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  function handleDragEnd({ active, over }) {
+    if (!over || active.id === over.id) return;
+    const oldIdx = assetIds.indexOf(active.id);
+    const newIdx = assetIds.indexOf(over.id);
+    update('asset_ids', arrayMove(assetIds, oldIdx, newIdx));
+  }
+
+  function removePhoto(id) {
+    update('asset_ids', assetIds.filter((a) => a !== id));
+  }
 
   return (
     <div style={s.form}>
@@ -152,26 +226,21 @@ function GridEditor({ content, update, updateMany }) {
         )}
       </Field>
 
-      <Field label={`Imagens (${(content.asset_ids || []).length})`}>
+      <Field label={`Imagens (${assetIds.length})`}>
         <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>
           Seleccionar da biblioteca…
         </button>
-        {(content.asset_ids || []).length > 0 && (
-          <div style={s.thumbRow}>
-            {content.asset_ids.slice(0, 6).map((id) => (
-              <img key={id} src={`/api/immich/assets/${id}/thumb`} alt="" style={s.miniThumb} />
-            ))}
-            {content.asset_ids.length > 6 && (
-              <span style={s.moreCount}>+{content.asset_ids.length - 6}</span>
-            )}
-          </div>
+        {assetIds.length > 0 && (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={assetIds} strategy={rectSortingStrategy}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                {assetIds.map((id) => (
+                  <SortableThumb key={id} id={id} onRemove={removePhoto} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
-        <textarea
-          style={{ ...s.input, height: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 11, marginTop: 8 }}
-          value={(content.asset_ids || []).join('\n')}
-          onChange={(e) => update('asset_ids', e.target.value.split('\n').map((l) => l.trim()).filter(Boolean))}
-          placeholder="Ou cola asset IDs (um por linha)"
-        />
       </Field>
 
       <Field label="Gap">
@@ -185,7 +254,7 @@ function GridEditor({ content, update, updateMany }) {
       {pickerOpen && (
         <AssetPicker
           multiple={true}
-          initialSelected={content.asset_ids || []}
+          initialSelected={assetIds}
           onSelect={(ids) => update('asset_ids', ids)}
           onClose={() => setPickerOpen(false)}
         />
@@ -337,7 +406,7 @@ function VideoEditor({ content, update }) {
       </Field>
       {pickerOpen && (
         <AssetPicker multiple={false} initialSelected={content.asset_id ? [content.asset_id] : []}
-          onSelect={(id) => update('asset_id', id)} onClose={() => setPickerOpen(false)} />
+          onSelect={(id) => update('asset_id', id)} onClose={() => setPickerOpen(false)} typeFilter="VIDEO" />
       )}
     </div>
   );

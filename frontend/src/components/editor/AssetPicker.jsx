@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../lib/api.js';
 import { thumbUrl } from '../../lib/immich.js';
 
-export default function AssetPicker({ onSelect, onClose, multiple = false, initialSelected = [] }) {
+const NONE_ALBUM = { id: '__none__', albumName: 'Fora de álbuns' };
+
+export default function AssetPicker({ onSelect, onClose, multiple = false, initialSelected = [], typeFilter }) {
   const [albums, setAlbums] = useState([]);
+  const [sharedOnly, setSharedOnly] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [assets, setAssets] = useState([]);
   const [picked, setPicked] = useState(new Set(initialSelected));
@@ -12,18 +15,27 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
   const [albumError, setAlbumError] = useState('');
 
   useEffect(() => {
-    api.get('/api/immich/albums')
+    setLoadingAlbums(true);
+    setAlbumError('');
+    const params = sharedOnly ? '?shared=true' : '';
+    api.get(`/api/immich/albums${params}`)
       .then((r) => setAlbums(r.data))
       .catch(() => setAlbumError('Sem acesso a álbuns. Verifica a tua API key Immich.'))
       .finally(() => setLoadingAlbums(false));
-  }, []);
+  }, [sharedOnly]);
 
   async function openAlbum(album) {
     setSelectedAlbum(album);
     setLoadingAssets(true);
     try {
-      const r = await api.get(`/api/immich/albums/${album.id}/assets`);
-      setAssets(r.data);
+      if (album.id === '__none__') {
+        const params = typeFilter ? `?type=${typeFilter}` : '';
+        const r = await api.get(`/api/immich/assets${params}`);
+        setAssets(r.data);
+      } else {
+        const r = await api.get(`/api/immich/albums/${album.id}/assets`);
+        setAssets(r.data);
+      }
     } finally {
       setLoadingAssets(false);
     }
@@ -46,6 +58,10 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
     onClose();
   }
 
+  const visibleAssets = typeFilter
+    ? assets.filter((a) => a.type === typeFilter)
+    : assets;
+
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.modal} onClick={(e) => e.stopPropagation()}>
@@ -59,6 +75,26 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
         <div style={s.body}>
           {/* Album list */}
           <aside style={s.albumList}>
+            {/* Toggle todos / partilhados */}
+            <div style={s.toggleRow}>
+              <button
+                style={{ ...s.toggleBtn, ...(sharedOnly ? {} : s.toggleBtnActive) }}
+                onClick={() => setSharedOnly(false)}
+              >Todos</button>
+              <button
+                style={{ ...s.toggleBtn, ...(sharedOnly ? s.toggleBtnActive : {}) }}
+                onClick={() => setSharedOnly(true)}
+              >Partilhados</button>
+            </div>
+
+            {/* Fora de álbuns */}
+            <button
+              style={{ ...s.albumBtn, ...(selectedAlbum?.id === '__none__' ? s.albumBtnActive : {}) }}
+              onClick={() => openAlbum(NONE_ALBUM)}
+            >
+              <span style={s.albumName}>📁 Fora de álbuns</span>
+            </button>
+
             <p style={s.sectionLabel}>Álbuns</p>
             {loadingAlbums && <p style={s.hint}>A carregar...</p>}
             {albumError && <p style={s.error}>{albumError}</p>}
@@ -82,15 +118,16 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
             {loadingAssets && <p style={s.hint}>A carregar assets...</p>}
             {!loadingAssets && selectedAlbum && (
               <>
-                {assets.length === 0 && <p style={s.hint}>Álbum vazio</p>}
+                {visibleAssets.length === 0 && <p style={s.hint}>Sem assets</p>}
                 <div style={s.grid}>
-                  {assets.map((a) => (
+                  {visibleAssets.map((a) => (
                     <div
                       key={a.id}
                       style={{ ...s.thumb, ...(picked.has(a.id) ? s.thumbSelected : {}) }}
                       onClick={() => toggle(a.id)}
                     >
                       <img src={thumbUrl(a.id)} alt="" style={s.thumbImg} />
+                      {a.type === 'VIDEO' && <div style={s.videoIcon}>▶</div>}
                       {picked.has(a.id) && <div style={s.check}>✓</div>}
                     </div>
                   ))}
@@ -120,7 +157,10 @@ const s = {
   closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999', lineHeight: 1 },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
   albumList: { width: 200, borderRight: '1px solid #eee', padding: '12px 8px', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  sectionLabel: { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, padding: '0 6px' },
+  toggleRow: { display: 'flex', gap: 4, marginBottom: 8 },
+  toggleBtn: { flex: 1, padding: '5px 0', fontSize: 11, border: '1px solid #ddd', borderRadius: 5, background: '#fff', cursor: 'pointer', color: '#666' },
+  toggleBtnActive: { background: '#1a1a1a', color: '#fff', border: '1px solid #1a1a1a', fontWeight: 600 },
+  sectionLabel: { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 8, padding: '0 6px' },
   albumBtn: { width: '100%', padding: '7px 10px', background: 'none', border: 'none', textAlign: 'left', borderRadius: 6, fontSize: 13, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 },
   albumBtnActive: { background: '#f0f0f0', fontWeight: 600 },
   albumName: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -130,6 +170,7 @@ const s = {
   thumb: { position: 'relative', aspectRatio: '1/1', overflow: 'hidden', borderRadius: 6, cursor: 'pointer', border: '2px solid transparent' },
   thumbSelected: { border: '2px solid #1a1a1a' },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  videoIcon: { position: 'absolute', bottom: 4, left: 4, fontSize: 11, color: '#fff', background: 'rgba(0,0,0,.55)', borderRadius: 3, padding: '1px 4px', lineHeight: 1.4 },
   check: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, background: '#1a1a1a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 },
   hint: { color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 32 },
   error: { color: '#c0392b', fontSize: 12, padding: '0 6px' },

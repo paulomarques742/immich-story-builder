@@ -17,7 +17,14 @@ export function publicThumbUrl(slug, assetId, size = 'thumbnail') {
 
 export function originalUrl(assetId) {
   if (!assetId) return '';
-  return `/api/immich/assets/${assetId}/original`;
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
+  const tokenPart = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `/api/immich/assets/${assetId}/original${tokenPart}`;
+}
+
+export function publicOriginalUrl(slug, assetId) {
+  if (!assetId || !slug) return '';
+  return `/api/public/${slug}/assets/${assetId}/original`;
 }
 
 export { IMMICH_URL };
