@@ -219,7 +219,7 @@ The frontend (`port 3000`) is the public entry point. Expose it via Cloudflare T
 
 - [x] **Phase 1** — Auth, story/block CRUD, basic public viewer (hero, grid, text)
 - [x] **Phase 2** — Drag-and-drop editor, asset picker, album auto-import, markdown editor
-- [ ] **Phase 3** — Map blocks (Leaflet/OpenStreetMap), video blocks, Immich sync notifications, story password protection, public comments
+- [x] **Phase 3** — Map blocks (Leaflet/OpenStreetMap), video blocks, Immich sync notifications, story password protection, public comments
 - [ ] **Phase 4** — OpenGraph meta tags, custom slugs, mobile-responsive, dark mode viewer
 
 ---

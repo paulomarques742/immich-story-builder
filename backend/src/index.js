@@ -1,7 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -13,6 +13,7 @@ const storiesRoutes = require('./routes/stories');
 const blocksRoutes = require('./routes/blocks');
 const immichRoutes = require('./routes/immich');
 const commentsRoutes = require('./routes/comments');
+const aiRoutes = require('./routes/ai');
 const startSyncJob = require('./sync');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(express.json());
 
 // ── Authenticated routes ──────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api', aiRoutes);
 app.use('/api/stories', storiesRoutes);
 app.use('/api/stories/:storyId/blocks', blocksRoutes);
 app.use('/api/immich', immichRoutes);

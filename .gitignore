@@ -10,6 +10,8 @@ backend/dist/
 
 # Database
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.db
 data/
 

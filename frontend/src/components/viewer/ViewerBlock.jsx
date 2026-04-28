@@ -57,7 +57,7 @@ function blockMatchesPeople(block, content, personAssetIds) {
 }
 
 // ── ViewerBlock dispatcher ───────────────────────────────────────
-export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, personAssetIds, thumbUrlFn = publicThumbUrl, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
+export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, personAssetIds, thumbUrlFn = publicThumbUrl, originalUrlFn = null, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
   const content = parse(block);
   const matchedPeople = blockMatchesPeople(block, content, personAssetIds);
   const dimStyle = matchedPeople ? undefined : { display: 'none' };
@@ -81,7 +81,7 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
     case 'map':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerMap content={content} /></div>;
     case 'video':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} thumbUrlFn={thumbUrlFn} /></div>;
+      return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} thumbUrlFn={thumbUrlFn} originalUrlFn={originalUrlFn} /></div>;
     case 'quote':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerQuote content={content} /></div>;
     case 'spacer':
@@ -486,9 +486,10 @@ function ViewerMap({ content }) {
 }
 
 // ── Video ─────────────────────────────────────────────────────────
-function ViewerVideo({ content, slug, thumbUrlFn = publicThumbUrl }) {
+function ViewerVideo({ content, slug, thumbUrlFn = publicThumbUrl, originalUrlFn = null }) {
   const { asset_id, caption, autoplay = false, loop = false } = content;
   const [playing, setPlaying] = useState(false);
+  const videoSrc = originalUrlFn ? originalUrlFn(slug, asset_id) : publicOriginalUrl(slug, asset_id);
 
   if (!asset_id) return null;
 
@@ -496,7 +497,7 @@ function ViewerVideo({ content, slug, thumbUrlFn = publicThumbUrl }) {
     return (
       <div style={{ borderRadius: 6, overflow: 'hidden', margin: '2rem 0', background: 'var(--ink)' }}>
         <video
-          src={publicOriginalUrl(slug, asset_id)}
+          src={videoSrc}
           style={{ width: '100%', display: 'block', aspectRatio: '16/9', objectFit: 'contain' }}
           controls autoPlay={autoplay} loop={loop} playsInline
         />

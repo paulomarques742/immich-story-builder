@@ -18,5 +18,6 @@ db.exec(schema);
 
 // Migrations — safe to run on every startup
 try { db.exec(`ALTER TABLE stories ADD COLUMN theme TEXT DEFAULT NULL`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN title_pt TEXT DEFAULT ''`); } catch {}
 
 module.exports = db;

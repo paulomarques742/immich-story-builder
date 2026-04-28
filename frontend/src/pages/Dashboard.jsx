@@ -36,6 +36,13 @@ export default function Dashboard() {
     navigate('/login');
   }
 
+  async function deleteStory(e, id) {
+    e.stopPropagation();
+    if (!window.confirm('Tens a certeza que queres eliminar esta story? Esta ação é irreversível.')) return;
+    await api.delete(`/api/stories/${id}`);
+    setStories((list) => list.filter((s) => s.id !== id));
+  }
+
   return (
     <div style={s.page}>
       <header style={s.header}>
@@ -107,6 +114,13 @@ export default function Dashboard() {
                       onClick={(e) => { e.stopPropagation(); setEditingStory(story); }}
                     >
                       ⚙
+                    </button>
+                    <button
+                      style={s.trashBtn}
+                      title="Eliminar story"
+                      onClick={(e) => deleteStory(e, story.id)}
+                    >
+                      🗑
                     </button>
                   </div>
                 </div>
@@ -232,6 +246,18 @@ const s = {
     borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
     fontSize: 14,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: 'var(--text-muted)',
+    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+  },
+  trashBtn: {
+    flexShrink: 0,
+    width: 28, height: 28,
+    border: '1px solid var(--border)',
+    background: 'var(--bg)',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    fontSize: 13,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: 'var(--text-muted)',
     transition: 'background 0.12s, color 0.12s, border-color 0.12s',

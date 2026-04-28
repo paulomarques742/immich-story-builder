@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
-import { thumbUrl } from '../lib/immich.js';
+import { thumbUrl, originalUrl } from '../lib/immich.js';
 import SortableBlockList from '../components/editor/SortableBlockList.jsx';
 import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
 import AlbumImporter from '../components/editor/AlbumImporter.jsx';
+import AiLayoutButton from '../components/editor/AiLayoutButton.jsx';
+import AiProgressModal from '../components/editor/AiProgressModal.jsx';
 import ThemePicker from '../components/editor/ThemePicker.jsx';
 import StorySettingsModal from '../components/editor/StorySettingsModal.jsx';
+import { useAiLayout } from '../hooks/useAiLayout.js';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 import { buildThemeVars, getTheme } from '../lib/themes.js';
 
@@ -27,6 +30,7 @@ const DEFAULT_CONTENT = {
 };
 
 const editorThumbUrl = (_slug, assetId, size) => thumbUrl(assetId, size);
+const editorOriginalUrl = (_slug, assetId) => originalUrl(assetId);
 
 function BlockInsertZone({ afterIdx, insertMenuIdx, setInsertMenuIdx, onAdd }) {
   const isOpen = insertMenuIdx === afterIdx;
@@ -120,10 +124,17 @@ export default function Editor() {
   const [rightOpen, setRightOpen] = useState(!window.matchMedia('(max-width: 720px)').matches);
   const [insertMenuIdx, setInsertMenuIdx] = useState(null);
   const [showImporter, setShowImporter] = useState(false);
+  const [showAiProgress, setShowAiProgress] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
+
+  const aiLayout = useAiLayout(id, async () => {
+    const res = await api.get(`/api/stories/${id}/blocks`);
+    setBlocks(res.data);
+    setSelected(null);
+  });
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 720px)');
@@ -252,6 +263,12 @@ export default function Editor() {
           <button className="btn btn-secondary" onClick={() => setShowImporter(true)} title="Importar álbum">
             {isMobile ? '↓' : '↓ Importar álbum'}
           </button>
+          {!isMobile && (
+            <AiLayoutButton
+              onTrigger={async (opts) => { await aiLayout.triggerAiLayout(opts); setShowAiProgress(true); }}
+              disabled={aiLayout.status === 'loading' || aiLayout.status === 'processing'}
+            />
+          )}
           <button
             className="btn btn-secondary"
             onClick={() => setShowThemePicker(true)}
@@ -373,7 +390,7 @@ export default function Editor() {
                   }}
                   onDelete={() => deleteBlock(b.id)}
                 />
-                <ViewerBlock block={b} story={story} thumbUrlFn={editorThumbUrl} />
+                <ViewerBlock block={b} story={story} thumbUrlFn={editorThumbUrl} originalUrlFn={editorOriginalUrl} />
               </div>
             );
             return (
@@ -451,6 +468,19 @@ export default function Editor() {
 
       {showImporter && (
         <AlbumImporter storyId={id} onImported={handleImported} onClose={() => setShowImporter(false)} />
+      )}
+
+      {showAiProgress && (
+        <AiProgressModal
+          status={aiLayout.status}
+          progress={aiLayout.progress}
+          processed={aiLayout.processed}
+          total={aiLayout.total}
+          blocksCreated={aiLayout.blocksCreated}
+          error={aiLayout.error}
+          onClose={() => { setShowAiProgress(false); aiLayout.reset(); }}
+          onRetry={() => { aiLayout.reset(); setShowAiProgress(false); }}
+        />
       )}
 
       {showPasswordModal && (

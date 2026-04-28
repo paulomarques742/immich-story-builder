@@ -10,8 +10,13 @@ services:
       - DATABASE_PATH=/data/db.sqlite
       - JWT_SECRET=${JWT_SECRET}
       - IMMICH_URL=${IMMICH_URL}
+      - IMMICH_API_KEY=${IMMICH_API_KEY}
       - SYNC_INTERVAL_MINUTES=15
       - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - AI_BATCH_SIZE=${AI_BATCH_SIZE:-10}
+      - AI_CONCURRENCY=${AI_CONCURRENCY:-3}
     volumes:
       - story_data:/data
     ports:

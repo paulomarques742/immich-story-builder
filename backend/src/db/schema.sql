@@ -67,3 +67,31 @@ CREATE TABLE IF NOT EXISTS sync_notifications (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   dismissed   INTEGER DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS ai_jobs (
+  id             TEXT PRIMARY KEY,
+  story_id       TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  status         TEXT NOT NULL DEFAULT 'pending',
+  progress       INTEGER DEFAULT 0,
+  processed      INTEGER DEFAULT 0,
+  total          INTEGER DEFAULT 0,
+  blocks_created INTEGER DEFAULT 0,
+  error          TEXT,
+  created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS asset_ai_scores (
+  asset_id          TEXT PRIMARY KEY,
+  score             REAL,
+  theme             TEXT,
+  mood              TEXT,
+  is_hero           INTEGER DEFAULT 0,
+  subject           TEXT,
+  suggested_caption TEXT,
+  city              TEXT,
+  country           TEXT,
+  lat               REAL,
+  lng               REAL,
+  analysed_at       TEXT DEFAULT CURRENT_TIMESTAMP
+);

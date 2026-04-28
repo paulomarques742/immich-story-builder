@@ -5,6 +5,11 @@ substitutions:
   _GCS_BUCKET: memoire-immich-data  # bucket GCS para persistência do SQLite
   _MEMORY: 512Mi
   _CPU: "1"
+  # Definir no trigger do Cloud Build (não ficam no git):
+  _JWT_SECRET: ""
+  _IMMICH_URL: ""
+  _IMMICH_API_KEY: ""
+  _ADMIN_EMAIL: ""
 
 steps:
   # ── 1. Build da imagem Docker ──────────────────────────────────
@@ -46,10 +51,8 @@ steps:
       - --memory=${_MEMORY}
       - --cpu=${_CPU}
       - --timeout=60
-      # Variáveis não-secretas
-      - --set-env-vars=NODE_ENV=production,DATABASE_PATH=/data/db.sqlite
-      # Segredos geridos pelo Secret Manager (criados no passo de setup)
-      - --update-secrets=JWT_SECRET=memoire-jwt-secret:latest,IMMICH_URL=memoire-immich-url:latest,IMMICH_API_KEY=memoire-immich-key:latest,ADMIN_EMAIL=memoire-admin-email:latest
+      # Todas as variáveis de ambiente (sensíveis vêm das substitutions do trigger)
+      - --set-env-vars=NODE_ENV=production,DATABASE_PATH=/data/db.sqlite,JWT_SECRET=${_JWT_SECRET},IMMICH_URL=${_IMMICH_URL},IMMICH_API_KEY=${_IMMICH_API_KEY},ADMIN_EMAIL=${_ADMIN_EMAIL}
       # Volume GCS para persistência do SQLite
       - --add-volume=name=data,type=cloud-storage,bucket=${_GCS_BUCKET}
       - --add-volume-mount=volume=data,mount-path=/data

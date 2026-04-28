@@ -8,7 +8,7 @@ PROJECT_ID=<o-teu-project-id>
 REGION=europe-west1
 SERVICE=memoire
 REPO=memoire
-BUCKET=memoire-data
+BUCKET=memoire-immich-data
 GITHUB_OWNER=<o-teu-github-user>
 GITHUB_REPO=immich-story-builder
 ```

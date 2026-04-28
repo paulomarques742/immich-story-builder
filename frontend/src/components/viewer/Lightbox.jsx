@@ -49,6 +49,18 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
   const current = photoRegistry[index] || {};
   const { assetId, caption } = current;
 
+  const navigate = useCallback((dir) => {
+    const next = index + dir;
+    if (next < 0 || next >= photoRegistry.length) return;
+    setSlideDir(dir > 0 ? 'right' : 'left');
+    setSliding(true);
+    setTimeout(() => {
+      setIndex(next);
+      setSlideDir(null);
+      setSliding(false);
+    }, 280);
+  }, [index, photoRegistry.length]);
+
   // Animate in on mount
   useEffect(() => {
     requestAnimationFrame(() => setOpen(true));
@@ -122,18 +134,6 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, [isMobile]);
-
-  const navigate = useCallback((dir) => {
-    const next = index + dir;
-    if (next < 0 || next >= photoRegistry.length) return;
-    setSlideDir(dir > 0 ? 'right' : 'left');
-    setSliding(true);
-    setTimeout(() => {
-      setIndex(next);
-      setSlideDir(null);
-      setSliding(false);
-    }, 280);
-  }, [index, photoRegistry.length]);
 
   useEffect(() => {
     function onKey(e) {
