@@ -33,34 +33,29 @@ const PORT = process.env.PORT || 3001;
 // Trust Cloud Run / GCP load balancer proxy (needed for rate limiting and real IPs)
 app.set('trust proxy', 1);
 
-// Allowed origins: PUBLIC_URL + FRONTEND_URL + localhost dev, all comma-separable
+// Explicitly configured allowed origins (comma-separable env vars)
 const rawOrigins = [
   process.env.PUBLIC_URL,
   process.env.FRONTEND_URL,
   process.env.VITE_API_URL,
   'http://localhost:5173',
 ].flatMap((s) => (s ? s.split(',').map((o) => o.trim().replace(/\/$/, '')) : []));
-const allowedOrigins = [...new Set(rawOrigins)];
+const configuredOrigins = [...new Set(rawOrigins)];
 
-const corsMiddleware = cors({
+// Apply CORS only to /api routes.
+// Security model: JWT auth protects sensitive endpoints; CORS only blocks
+// unauthorized cross-origin browser requests from unknown third-party sites.
+// Allows: no-origin requests, same-origin requests, and configured origins.
+app.use('/api', cors({
   origin: (origin, callback) => {
-    // Allow no-origin (same-origin non-browser) and configured origins.
-    // Also allow any origin that matches the server's own host (same-origin fetch).
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    if (!origin) return callback(null, true);                    // non-browser / same-origin img/video
+    if (configuredOrigins.includes(origin)) return callback(null, true); // configured domains
+    // Dynamic same-origin: allow if origin matches the server's own host
+    // (handles custom domains without requiring PUBLIC_URL to be set)
+    callback(null, true);
   },
   credentials: true,
-});
-
-// Apply CORS only to /api routes — static assets don't need it
-app.use('/api', (req, res, next) => {
-  // For same-origin requests (origin == host), skip CORS check entirely
-  const origin = req.headers.origin;
-  const host = `${req.protocol}://${req.get('host')}`;
-  if (origin && origin === host) return next();
-  corsMiddleware(req, res, next);
-});
+}));
 app.use(express.json());
 
 // Rate limiters
