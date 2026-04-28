@@ -213,13 +213,14 @@ function buildDividerLabel(group) {
   }
 }
 
-// ── Map block builder ─────────────────────────────────────────────
+// ── Map block builder (single story-wide map) ─────────────────────
 
-function buildMapBlock(items, position) {
-  const gpsItems = items
-    .filter((a) => a.assetType !== 'VIDEO' && a.score.lat && a.score.lng)
+function buildStoryMap(groups, position) {
+  const allItems = groups.flatMap((g) => g.items);
+  const gpsItems = allItems
+    .filter((a) => a.assetType !== 'VIDEO' && a.score.lat != null && a.score.lng != null)
     .sort((a, b) => b.score.score - a.score.score)
-    .slice(0, 20);
+    .slice(0, 30);
 
   if (!gpsItems.length) return null;
 
@@ -238,9 +239,53 @@ function buildMapBlock(items, position) {
       resolved_markers: markers,
       show_route: markers.length >= 2,
       route_color: '#E07B54',
-      zoom: 10,
+      zoom: 8,
     }),
   };
+}
+
+// ── Grid variety builder ──────────────────────────────────────────
+
+/**
+ * Distributes images across varied grid layouts based on score tiers:
+ *  ≥8 (1 photo)  → single full-width (columns:1)
+ *  ≥8 (2–4)     → portrait duo (columns:2, aspect:portrait)
+ *  ≥8 (5+)      → asymmetric magazine (columns:2, aspect:auto)
+ *  6–7           → asymmetric magazine (columns:2, aspect:auto)
+ *  4–5           → 3-column grid
+ *  <4            → 4-column grid
+ */
+function buildGridBlocks(items) {
+  const sorted = [...items].sort((a, b) => b.score.score - a.score.score);
+
+  const tier1 = sorted.filter((a) => a.score.score >= 8);
+  const tier2 = sorted.filter((a) => a.score.score >= 6 && a.score.score < 8);
+  const tier3 = sorted.filter((a) => a.score.score >= 4 && a.score.score < 6);
+  const tier4 = sorted.filter((a) => a.score.score < 4);
+
+  const blocks = [];
+
+  function addGrid(assetItems, columns, aspect) {
+    if (!assetItems.length) return;
+    blocks.push({
+      id: uuidv4(), type: 'grid',
+      content: JSON.stringify({ asset_ids: assetItems.map((a) => a.asset.id), columns, gap: 'sm', aspect }),
+    });
+  }
+
+  if (tier1.length === 1) {
+    addGrid(tier1, 1, 'auto');
+  } else if (tier1.length <= 4) {
+    addGrid(tier1, 2, 'portrait');
+  } else {
+    addGrid(tier1, 2, 'auto');
+  }
+
+  addGrid(tier2, 2, 'auto');
+  addGrid(tier3, 3, 'square');
+  addGrid(tier4, 4, 'square');
+
+  return blocks;
 }
 
 function topAssets(group, n = 3) {
@@ -253,27 +298,27 @@ function topAssets(group, n = 3) {
 // ── Block generation ──────────────────────────────────────────────
 
 async function generateBlocksFromGroups(groups, language, fetchThumbFn) {
-  const blocks = [];
-  let position = 0;
+  const rawBlocks = [];
 
   const allImageItems = groups.flatMap((g) => g.items).filter((a) => a.assetType !== 'VIDEO');
-  if (!allImageItems.length) return blocks;
+  if (!allImageItems.length) return rawBlocks;
 
   const bestOverall = allImageItems.reduce((best, cur) => (cur.score.score > best.score.score ? cur : best));
 
   // Opening hero
-  blocks.push({
-    id: uuidv4(),
-    type: 'hero',
-    position: position++,
+  rawBlocks.push({
+    id: uuidv4(), type: 'hero',
     content: JSON.stringify({
       asset_id: bestOverall.asset.id,
       caption: bestOverall.score.caption_pt || '',
-      overlay: true,
-      height: 'full',
+      overlay: true, height: 'full',
       title: bestOverall.score.title_pt || '',
     }),
   });
+
+  // Single story-wide map (placed right after opening hero if GPS data exists)
+  const storyMap = buildStoryMap(groups, 0);
+  if (storyMap) rawBlocks.push({ id: storyMap.id, type: 'map', content: storyMap.content });
 
   for (let gi = 0; gi < groups.length; gi++) {
     const group = groups[gi];
@@ -284,15 +329,13 @@ async function generateBlocksFromGroups(groups, language, fetchThumbFn) {
 
     // Divider between groups
     if (!isFirst) {
-      blocks.push({
-        id: uuidv4(),
-        type: 'divider',
-        position: position++,
+      rawBlocks.push({
+        id: uuidv4(), type: 'divider',
         content: JSON.stringify({ style: 'line', label: buildDividerLabel(group) }),
       });
     }
 
-    // Narrative text block
+    // Narrative text
     const best3 = topAssets(group, 3);
     const thumbsBase64 = await Promise.all(
       best3.map((a) => fetchThumbFn(a.asset.id).catch(() => null))
@@ -303,80 +346,66 @@ async function generateBlocksFromGroups(groups, language, fetchThumbFn) {
       : '';
 
     if (narrative) {
-      blocks.push({
-        id: uuidv4(),
-        type: 'text',
-        position: position++,
+      rawBlocks.push({
+        id: uuidv4(), type: 'text',
         content: JSON.stringify({ markdown: narrative, align: 'left', max_width: 'prose' }),
       });
     }
 
-    // Map block
-    const mapBlock = buildMapBlock(group.items, position);
-    if (mapBlock) {
-      mapBlock.position = position++;
-      blocks.push(mapBlock);
+    // Quote from the best photo's caption — gives "read → feel → see" rhythm before the hero
+    const bestInGroup = topAssets(group, 1)[0];
+    if (bestInGroup && bestInGroup.score.caption_pt) {
+      rawBlocks.push({
+        id: uuidv4(), type: 'quote',
+        content: JSON.stringify({ quote: bestInGroup.score.caption_pt, author: '' }),
+      });
     }
 
-    // Hero for best image in group
-    const bestInGroup = topAssets(group, 1)[0];
+    // Hero for the best image in group
     if (bestInGroup && bestInGroup.asset.id !== bestOverall.asset.id) {
-      blocks.push({
-        id: uuidv4(),
-        type: 'hero',
-        position: position++,
+      rawBlocks.push({
+        id: uuidv4(), type: 'hero',
         content: JSON.stringify({
           asset_id: bestInGroup.asset.id,
           caption: bestInGroup.score.caption_pt || '',
-          overlay: true,
-          height: 'full',
+          overlay: true, height: 'full',
           title: bestInGroup.score.title_pt || '',
         }),
       });
     }
 
-    // Image grids by score tier
-    const remaining = imageItems
-      .filter((a) => a.asset.id !== bestInGroup?.asset.id && a.asset.id !== bestOverall.asset.id)
-      .sort((a, b) => b.score.score - a.score.score);
-
-    const tier1 = remaining.filter((a) => a.score.score >= 7);
-    const tier2 = remaining.filter((a) => a.score.score >= 4 && a.score.score < 7);
-    const tier3 = remaining.filter((a) => a.score.score < 4);
-
-    if (tier1.length) {
-      blocks.push({ id: uuidv4(), type: 'grid', position: position++,
-        content: JSON.stringify({ asset_ids: tier1.map((a) => a.asset.id), columns: 1, gap: 'sm', aspect: 'auto' }) });
-    }
-    if (tier2.length) {
-      blocks.push({ id: uuidv4(), type: 'grid', position: position++,
-        content: JSON.stringify({ asset_ids: tier2.map((a) => a.asset.id), columns: 3, gap: 'sm', aspect: 'square' }) });
-    }
-    if (tier3.length) {
-      blocks.push({ id: uuidv4(), type: 'grid', position: position++,
-        content: JSON.stringify({ asset_ids: tier3.map((a) => a.asset.id), columns: 4, gap: 'sm', aspect: 'square' }) });
-    }
+    // Varied grids — exclude the group hero and the opening hero
+    const remaining = imageItems.filter(
+      (a) => a.asset.id !== bestInGroup?.asset.id && a.asset.id !== bestOverall.asset.id
+    );
+    const gridBlocks = buildGridBlocks(remaining);
+    rawBlocks.push(...gridBlocks);
 
     // Video blocks
     for (const v of videoItems) {
-      blocks.push({ id: uuidv4(), type: 'video', position: position++,
-        content: JSON.stringify({ asset_id: v.asset.id, caption: v.score.caption_pt || '', autoplay: false, loop: false }) });
+      rawBlocks.push({
+        id: uuidv4(), type: 'video',
+        content: JSON.stringify({ asset_id: v.asset.id, caption: v.score.caption_pt || '', autoplay: false, loop: false }),
+      });
     }
   }
 
-  // Closing text block
+  // Closing text
   const closingThumb = await fetchThumbFn(bestOverall.asset.id).catch(() => null);
   if (closingThumb) {
     const lastGroup = groups[groups.length - 1];
     const closing = await generateNarrative([closingThumb], 'closing', language,
       { city: lastGroup?.city, country: lastGroup?.country });
     if (closing) {
-      blocks.push({ id: uuidv4(), type: 'text', position: position++,
-        content: JSON.stringify({ markdown: closing, align: 'center', max_width: 'prose' }) });
+      rawBlocks.push({
+        id: uuidv4(), type: 'text',
+        content: JSON.stringify({ markdown: closing, align: 'center', max_width: 'prose' }),
+      });
     }
   }
 
-  return blocks;
+  // Assign sequential positions
+  return rawBlocks.map((b, i) => ({ ...b, position: i }));
 }
 
 // ── Main orchestrator ─────────────────────────────────────────────
