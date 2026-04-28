@@ -8,6 +8,7 @@ export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState(false);
 
   function set(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -21,6 +22,7 @@ export default function Login() {
       let res;
       if (isRegister) {
         res = await api.post('/api/auth/register', { email: form.email, password: form.password, name: form.name });
+        if (res.data.pending) { setPending(true); return; }
       } else {
         res = await api.post('/api/auth/login', { email: form.email, password: form.password });
       }
@@ -32,6 +34,26 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (pending) {
+    return (
+      <div style={s.page}>
+        <div style={s.card}>
+          <div style={s.brand}>
+            <div style={s.brandIcon}>M</div>
+            <span style={s.brandName}>Memoire</span>
+          </div>
+          <h1 style={s.title}>Conta criada</h1>
+          <p style={{ ...s.subtitle, marginBottom: 20 }}>
+            A tua conta foi criada com sucesso. Aguarda que o administrador aprove o teu acesso.
+          </p>
+          <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => { setPending(false); setIsRegister(false); }}>
+            Voltar ao login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

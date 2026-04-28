@@ -1,9 +1,18 @@
 const express = require('express');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { runAutoLayout } = require('../services/autoLayout');
 const db = require('../db');
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many AI requests, please slow down' },
+});
 
 const router = express.Router();
 
@@ -16,7 +25,7 @@ function immichClient() {
 }
 
 // POST /api/stories/:storyId/blocks/ai-layout
-router.post('/stories/:storyId/blocks/ai-layout', requireAuth, async (req, res) => {
+router.post('/stories/:storyId/blocks/ai-layout', aiLimiter, requireAuth, async (req, res) => {
   if (!process.env.GEMINI_API_KEY) {
     return res.status(501).json({ error: 'AI Layout não configurado. Adiciona GEMINI_API_KEY ao .env.' });
   }

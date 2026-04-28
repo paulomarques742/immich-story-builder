@@ -6,6 +6,7 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
 
 const db = require('./db');
 const authRoutes = require('./routes/auth');
@@ -16,14 +17,49 @@ const commentsRoutes = require('./routes/comments');
 const aiRoutes = require('./routes/ai');
 const startSyncJob = require('./sync');
 
+// Fail fast if critical secrets are missing or too weak
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET missing or too weak — must be at least 32 characters. Run: openssl rand -base64 48');
+  process.exit(1);
+}
+if (!process.env.IMMICH_API_KEY) {
+  console.error('FATAL: IMMICH_API_KEY is not set');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.VITE_API_URL || 'http://localhost:5173', credentials: true }));
+// CORS — only allow the configured frontend origin
+const allowedOrigin = process.env.FRONTEND_URL || process.env.VITE_API_URL || 'http://localhost:5173';
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow same-origin requests (no Origin header) and the configured frontend
+    if (!origin || origin === allowedOrigin) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+const unlockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many unlock attempts, please try again later' },
+});
+
 // ── Authenticated routes ──────────────────────────────────────
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api', aiRoutes);
 app.use('/api/stories', storiesRoutes);
 app.use('/api/stories/:storyId/blocks', blocksRoutes);
@@ -57,7 +93,7 @@ app.get('/api/public/:slug', (req, res) => {
 });
 
 // POST /api/public/:slug/unlock
-app.post('/api/public/:slug/unlock', (req, res) => {
+app.post('/api/public/:slug/unlock', unlockLimiter, (req, res) => {
   const story = db.prepare('SELECT * FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
   if (!story) return res.status(404).json({ error: 'Story not found' });
   if (!story.password_hash) return res.json({ token: null });

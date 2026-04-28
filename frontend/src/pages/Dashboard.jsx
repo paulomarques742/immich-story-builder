@@ -12,12 +12,33 @@ export default function Dashboard() {
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const [editingStory, setEditingStory] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [showUsers, setShowUsers] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     api.get('/api/stories').then((r) => setStories(r.data)).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (user.role === 'admin') {
+      api.get('/api/auth/admin/users').then((r) => setUsers(r.data)).catch(() => {});
+    }
+  }, []);
+
+  async function approveUser(id) {
+    await api.post(`/api/auth/admin/users/${id}/approve`);
+    setUsers((list) => list.map((u) => u.id === id ? { ...u, approved: 1 } : u));
+  }
+
+  async function deleteUser(id) {
+    if (!window.confirm('Eliminar este utilizador?')) return;
+    await api.delete(`/api/auth/admin/users/${id}`);
+    setUsers((list) => list.filter((u) => u.id !== id));
+  }
+
+  const pendingCount = users.filter((u) => !u.approved).length;
 
   async function createStory(e) {
     e.preventDefault();
@@ -52,12 +73,48 @@ export default function Dashboard() {
         </div>
         <div style={s.headerRight}>
           <span style={s.userEmail}>{user.email}</span>
+          {user.role === 'admin' && (
+            <button className="btn btn-ghost" onClick={() => setShowUsers((v) => !v)} style={{ position: 'relative' }}>
+              Utilizadores
+              {pendingCount > 0 && (
+                <span style={s.badge}>{pendingCount}</span>
+              )}
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={logout}>Sair</button>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nova Story</button>
         </div>
       </header>
 
       <main style={s.main}>
+        {showUsers && user.role === 'admin' && (
+          <div style={s.usersPanel}>
+            <h3 style={s.usersPanelTitle}>Utilizadores</h3>
+            {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhum utilizador registado.</p>}
+            {users.map((u) => (
+              <div key={u.id} style={s.userRow}>
+                <div style={{ minWidth: 0 }}>
+                  <p style={s.userName}>{u.name} <span style={{ ...s.rolePill, ...(u.role === 'admin' ? s.roleAdmin : s.roleEditor) }}>{u.role}</span></p>
+                  <p style={s.userEmail2}>{u.email}</p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {!u.approved && (
+                    <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 12px' }} onClick={() => approveUser(u.id)}>
+                      Aprovar
+                    </button>
+                  )}
+                  {u.approved && <span style={s.approvedBadge}>Aprovado</span>}
+                  {u.id !== user.id && (
+                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px', color: 'var(--danger)' }} onClick={() => deleteUser(u.id)}>
+                      Remover
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={s.pageHeader}>
           <h2 style={s.pageTitle}>As tuas stories</h2>
           {!loading && stories.length > 0 && (
@@ -170,6 +227,35 @@ export default function Dashboard() {
 
 const s = {
   page: { minHeight: '100vh', background: 'var(--bg)' },
+  badge: {
+    position: 'absolute', top: 4, right: 4,
+    background: 'var(--danger)', color: '#fff',
+    borderRadius: 99, fontSize: 10, fontWeight: 700,
+    minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '0 4px',
+  },
+  usersPanel: {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: '20px 24px',
+    marginBottom: 32,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  usersPanelTitle: { fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 },
+  userRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    padding: '10px 0',
+    borderTop: '1px solid var(--border)',
+  },
+  userName: { fontSize: 14, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 },
+  userEmail2: { fontSize: 12, color: 'var(--text-muted)', marginTop: 2 },
+  rolePill: { fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 99 },
+  roleAdmin: { background: 'rgba(99,102,241,0.1)', color: '#6366f1' },
+  roleEditor: { background: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)' },
+  approvedBadge: { fontSize: 12, color: 'var(--success, #059669)', fontWeight: 500, padding: '4px 10px' },
   header: {
     background: 'var(--surface)',
     borderBottom: '1px solid var(--border)',

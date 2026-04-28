@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api.js';
 
-export default function AiLayoutButton({ onTrigger, disabled }) {
+export default function AiLayoutButton({ onTrigger, disabled, isMobile = false }) {
   const [open, setOpen] = useState(false);
   const [albums, setAlbums] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -60,7 +60,7 @@ export default function AiLayoutButton({ onTrigger, disabled }) {
         disabled={disabled}
         title="Gerar story automaticamente com IA"
       >
-        ✨ AI Layout
+        {isMobile ? '✨' : '✨ AI Layout'}
       </button>
 
       {open && (

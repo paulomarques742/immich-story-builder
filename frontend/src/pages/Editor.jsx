@@ -263,12 +263,11 @@ export default function Editor() {
           <button className="btn btn-secondary" onClick={() => setShowImporter(true)} title="Importar álbum">
             {isMobile ? '↓' : '↓ Importar álbum'}
           </button>
-          {!isMobile && (
-            <AiLayoutButton
-              onTrigger={async (opts) => { await aiLayout.triggerAiLayout(opts); setShowAiProgress(true); }}
-              disabled={aiLayout.status === 'loading' || aiLayout.status === 'processing'}
-            />
-          )}
+          <AiLayoutButton
+            onTrigger={async (opts) => { await aiLayout.triggerAiLayout(opts); setShowAiProgress(true); }}
+            disabled={aiLayout.status === 'loading' || aiLayout.status === 'processing'}
+            isMobile={isMobile}
+          />
           <button
             className="btn btn-secondary"
             onClick={() => setShowThemePicker(true)}
