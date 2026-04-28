@@ -30,16 +30,17 @@ if (!process.env.IMMICH_API_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS — only allow the configured frontend origin
 const allowedOrigin = process.env.FRONTEND_URL || process.env.VITE_API_URL || 'http://localhost:5173';
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Allow same-origin requests (no Origin header) and the configured frontend
     if (!origin || origin === allowedOrigin) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-}));
+});
+
+// Apply CORS only to /api routes — static assets don't need it
+app.use('/api', corsMiddleware);
 app.use(express.json());
 
 // Rate limiters
