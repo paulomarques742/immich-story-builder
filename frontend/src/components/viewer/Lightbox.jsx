@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { publicThumbUrl, publicOriginalUrl } from '../../lib/immich.js';
 
@@ -40,6 +40,11 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
   const [form, setForm] = useState({ author_name: '', body: '' });
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 720px)').matches);
+  const [imgScale, setImgScale] = useState(1);
+  const photoRef = useRef(null);
+  const navigateRef = useRef(null);
+  const imgScaleRef = useRef(1);
 
   const current = photoRegistry[index] || {};
   const { assetId, caption } = current;
@@ -49,14 +54,74 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
     requestAnimationFrame(() => setOpen(true));
   }, []);
 
+  // Reactive mobile breakpoint
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   // Load comments when photo changes
   useEffect(() => {
     if (!assetId) return;
     setComments([]);
+    setImgScale(1);
     axios.get(`/api/public/${slug}/comments/${assetId}`)
       .then((r) => setComments(r.data))
       .catch(() => {});
   }, [slug, assetId]);
+
+  // Keep refs in sync so touch handlers always have latest values without re-registering
+  useEffect(() => { navigateRef.current = navigate; }, [navigate]);
+  useEffect(() => { imgScaleRef.current = imgScale; }, [imgScale]);
+
+  // Swipe navigation + pinch-to-zoom (mobile only)
+  useEffect(() => {
+    const el = photoRef.current;
+    if (!el || !isMobile) return;
+    let lastDist = null;
+    let startX = null;
+    let isMultiTouch = false;
+
+    function onTouchStart(e) {
+      isMultiTouch = e.touches.length > 1;
+      if (e.touches.length === 1) startX = e.touches[0].clientX;
+    }
+    function onTouchMove(e) {
+      if (e.touches.length === 2) {
+        isMultiTouch = true;
+        e.preventDefault();
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        if (lastDist !== null) {
+          setImgScale((s) => Math.min(4, Math.max(1, s * (d / lastDist))));
+        }
+        lastDist = d;
+      }
+    }
+    function onTouchEnd(e) {
+      lastDist = null;
+      if (!isMultiTouch && startX !== null && imgScaleRef.current === 1) {
+        const delta = e.changedTouches[0].clientX - startX;
+        if (Math.abs(delta) > 50) {
+          navigateRef.current(delta < 0 ? 1 : -1);
+        }
+      }
+      startX = null;
+      isMultiTouch = false;
+    }
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isMobile]);
 
   const navigate = useCallback((dir) => {
     const next = index + dir;
@@ -103,15 +168,16 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
 
   const imgStyle = {
     width: '100%',
-    maxHeight: 'calc(100vh - 120px)',
+    maxHeight: isMobile ? 'calc(55vh - 80px)' : 'calc(100vh - 120px)',
     objectFit: 'contain',
     borderRadius: 4,
     boxShadow: '0 8px 48px rgba(0,0,0,0.5)',
-    transition: 'opacity 250ms, transform 300ms var(--ease-out)',
+    transition: sliding ? 'opacity 250ms, transform 300ms var(--ease-out)' : 'opacity 250ms',
     opacity: sliding ? 0 : 1,
     transform: sliding
-      ? `translateX(${slideDir === 'right' ? '-40px' : '40px'})`
-      : 'translateX(0) scale(1)',
+      ? `translateX(${slideDir === 'right' ? '-40px' : '40px'}) scale(${imgScale})`
+      : `translateX(0) scale(${imgScale})`,
+    transformOrigin: 'center center',
   };
 
   return (
@@ -119,6 +185,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         display: 'flex', alignItems: 'stretch',
+        flexDirection: isMobile ? 'column' : 'row',
         background: 'rgba(12,10,8,0.96)',
         backdropFilter: 'blur(12px)',
         opacity: open ? 1 : 0,
@@ -130,9 +197,11 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
+          flex: isMobile ? 'none' : 1,
+          height: isMobile ? '55vh' : undefined,
+          display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          padding: '3.5rem 2.5rem 2.5rem',
+          padding: isMobile ? '2.5rem 1rem 1rem' : '3.5rem 2.5rem 2.5rem',
           position: 'relative',
         }}
       >
@@ -183,7 +252,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
           <button
             onClick={() => navigate(-1)}
             style={{
-              position: 'absolute', left: '1.5rem', top: '50%', transform: 'translateY(-50%)',
+              position: 'absolute', left: isMobile ? '0.5rem' : '1.5rem', top: '50%', transform: 'translateY(-50%)',
               width: 36, height: 36, borderRadius: '50%',
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -199,7 +268,10 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
         )}
 
         {/* Image */}
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div
+          ref={photoRef}
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', touchAction: isMobile ? 'none' : undefined }}
+        >
           {assetId && (
             <img
               key={assetId}
@@ -223,7 +295,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
           <button
             onClick={() => navigate(1)}
             style={{
-              position: 'absolute', right: '1.5rem', top: '50%', transform: 'translateY(-50%)',
+              position: 'absolute', right: isMobile ? '0.5rem' : '1.5rem', top: '50%', transform: 'translateY(-50%)',
               width: 36, height: 36, borderRadius: '50%',
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -252,10 +324,15 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 340, flexShrink: 0,
+          width: isMobile ? '100%' : 340,
+          flex: isMobile ? 1 : undefined,
+          flexShrink: 0,
+          overflow: isMobile ? 'hidden' : undefined,
           background: 'var(--paper)',
           display: 'flex', flexDirection: 'column',
-          transform: open ? 'translateX(0)' : 'translateX(20px)',
+          transform: open
+            ? 'translate(0,0)'
+            : isMobile ? 'translateY(20px)' : 'translateX(20px)',
           transition: 'transform 380ms 60ms var(--ease-out)',
         }}
       >

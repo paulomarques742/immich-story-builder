@@ -7,6 +7,7 @@ import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
 import AlbumImporter from '../components/editor/AlbumImporter.jsx';
 import ThemePicker from '../components/editor/ThemePicker.jsx';
+import StorySettingsModal from '../components/editor/StorySettingsModal.jsx';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 import { buildThemeVars, getTheme } from '../lib/themes.js';
 
@@ -114,13 +115,22 @@ export default function Editor() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 720px)').matches);
   const [leftOpen, setLeftOpen] = useState(false);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(!window.matchMedia('(max-width: 720px)').matches);
   const [insertMenuIdx, setInsertMenuIdx] = useState(null);
   const [showImporter, setShowImporter] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const handler = (e) => { setIsMobile(e.matches); if (e.matches) setRightOpen(false); };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -217,6 +227,8 @@ export default function Editor() {
 
   const themeVars = story ? buildThemeVars(story.theme) : {};
 
+  const canvasStyle = isMobile ? { ...s.storyCanvas, padding: '0 1rem' } : s.storyCanvas;
+
   if (loading) return <div style={s.loading}>A carregar editor…</div>;
   if (!story) return <div style={s.loading}>Story não encontrada.</div>;
 
@@ -225,18 +237,20 @@ export default function Editor() {
       {/* Top toolbar */}
       <header style={s.topbar}>
         <button className="btn btn-ghost" style={{ gap: 6, fontSize: 13 }} onClick={() => navigate('/dashboard')}>
-          ← Dashboard
+          ← {!isMobile && 'Dashboard'}
         </button>
         <div style={s.topbarDivider} />
-        <span style={s.storyTitle}>{story.title}</span>
+        <button style={s.storyTitleBtn} onClick={() => setShowSettings(true)} title="Editar definições da story">
+          {story.title} <span style={{ opacity: 0.35, fontSize: 11, marginLeft: 4 }}>✏</span>
+        </button>
         <div style={s.topbarRight}>
           {syncCount > 0 && (
             <button className="btn btn-warn" onClick={dismissSync} title="Dispensar notificações de sync">
-              📸 {syncCount} novas fotos  ✕
+              📸 {!isMobile && `${syncCount} novas fotos  `}✕
             </button>
           )}
-          <button className="btn btn-secondary" onClick={() => setShowImporter(true)}>
-            ↓ Importar álbum
+          <button className="btn btn-secondary" onClick={() => setShowImporter(true)} title="Importar álbum">
+            {isMobile ? '↓' : '↓ Importar álbum'}
           </button>
           <button
             className="btn btn-secondary"
@@ -254,7 +268,7 @@ export default function Editor() {
           >
             🔒
           </button>
-          {story.published && (
+          {story.published && !isMobile && (
             <a
               href={`/${story.slug}`}
               target="_blank"
@@ -275,8 +289,23 @@ export default function Editor() {
       </header>
 
       <div style={s.body}>
-        {/* Left sidebar — collapsible */}
-        <aside style={{ ...s.sidebar, width: leftOpen ? 192 : 40 }}>
+        {/* Mobile backdrop */}
+        {isMobile && (leftOpen || rightOpen) && (
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(0,0,0,0.35)' }}
+            onClick={() => { setLeftOpen(false); setRightOpen(false); }}
+          />
+        )}
+
+        {/* Left sidebar — collapsible on desktop, drawer on mobile */}
+        <aside style={isMobile ? {
+          ...s.sidebar,
+          position: 'fixed', left: 0, top: 54, bottom: 52,
+          width: 280, zIndex: 50,
+          boxShadow: leftOpen ? '4px 0 24px rgba(0,0,0,0.18)' : 'none',
+          transform: leftOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s ease',
+        } : { ...s.sidebar, width: leftOpen ? 192 : 40 }}>
           {leftOpen ? (
             <>
               <div style={s.sidebarHeader}>
@@ -302,9 +331,9 @@ export default function Editor() {
         </aside>
 
         {/* Center — preview */}
-        <main style={{ ...s.preview, ...themeVars }} onClick={() => setInsertMenuIdx(null)}>
+        <main style={{ ...s.preview, ...themeVars, paddingBottom: isMobile ? '4.5rem' : '6rem' }} onClick={() => setInsertMenuIdx(null)}>
           {/* Insert zone before first block */}
-          <div style={s.storyCanvas}>
+          <div style={canvasStyle}>
             <BlockInsertZone
               afterIdx={-1}
               insertMenuIdx={insertMenuIdx}
@@ -349,8 +378,8 @@ export default function Editor() {
             );
             return (
               <Fragment key={b.id}>
-                {isHero ? blockEl : <div style={s.storyCanvas}>{blockEl}</div>}
-                <div style={s.storyCanvas}>
+                {isHero ? blockEl : <div style={canvasStyle}>{blockEl}</div>}
+                <div style={canvasStyle}>
                   <BlockInsertZone
                     afterIdx={idx}
                     insertMenuIdx={insertMenuIdx}
@@ -363,8 +392,17 @@ export default function Editor() {
           })}
         </main>
 
-        {/* Right — properties, collapsible */}
-        <aside style={{ ...s.props, width: rightOpen ? 292 : 36 }}>
+        {/* Right — properties, collapsible on desktop / bottom sheet on mobile */}
+        <aside style={isMobile ? {
+          ...s.props,
+          position: 'fixed', left: 0, right: 0, bottom: 52,
+          height: '65vh', width: '100%',
+          borderTop: '1px solid var(--border)', borderLeft: 'none',
+          borderRadius: '12px 12px 0 0',
+          transform: rightOpen ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.3s ease',
+          zIndex: 50, overflowY: 'auto',
+        } : { ...s.props, width: rightOpen ? 292 : 36 }}>
           {rightOpen ? (
             <>
               <div style={s.propsHeader}>
@@ -391,6 +429,26 @@ export default function Editor() {
         </aside>
       </div>
 
+      {/* Mobile bottom navigation */}
+      {isMobile && (
+        <nav style={s.mobileBar}>
+          <button
+            style={{ ...s.mobileBarBtn, ...(leftOpen ? s.mobileBarBtnActive : {}) }}
+            onClick={() => { setLeftOpen((o) => !o); setRightOpen(false); }}
+          >
+            <span style={{ fontSize: 18 }}>☰</span>
+            <span>Blocos</span>
+          </button>
+          <button
+            style={{ ...s.mobileBarBtn, ...(rightOpen ? s.mobileBarBtnActive : {}), opacity: selectedBlock ? 1 : 0.35 }}
+            onClick={() => { if (selectedBlock) { setRightOpen((o) => !o); setLeftOpen(false); } }}
+          >
+            <span style={{ fontSize: 18 }}>⚙</span>
+            <span>Propriedades</span>
+          </button>
+        </nav>
+      )}
+
       {showImporter && (
         <AlbumImporter storyId={id} onImported={handleImported} onClose={() => setShowImporter(false)} />
       )}
@@ -410,6 +468,15 @@ export default function Editor() {
           currentTheme={story.theme}
           onSaved={(theme) => setStory((s) => ({ ...s, theme }))}
           onClose={() => setShowThemePicker(false)}
+        />
+      )}
+
+      {showSettings && (
+        <StorySettingsModal
+          storyId={id}
+          story={story}
+          onSaved={(updated) => setStory((s) => ({ ...s, ...updated }))}
+          onClose={() => setShowSettings(false)}
         />
       )}
     </div>
@@ -500,6 +567,14 @@ const s = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     color: 'var(--text)',
+  },
+  storyTitleBtn: {
+    flex: 1, minWidth: 0,
+    fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    color: 'var(--text)', background: 'none', border: 'none',
+    cursor: 'pointer', textAlign: 'left', padding: '4px 6px',
+    borderRadius: 'var(--radius-sm)', transition: 'background 0.12s',
   },
   topbarRight: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 },
   viewLink: {
@@ -623,7 +698,23 @@ const s = {
     borderRadius: 'var(--radius-lg)',
     padding: '28px 32px',
     width: 400,
+    maxWidth: 'calc(100vw - 2rem)',
     boxShadow: 'var(--shadow-lg)',
     border: '1px solid var(--border)',
   },
+  mobileBar: {
+    position: 'fixed', bottom: 0, left: 0, right: 0,
+    height: 52, background: 'var(--surface)',
+    borderTop: '1px solid var(--border)',
+    display: 'flex', zIndex: 60,
+  },
+  mobileBarBtn: {
+    flex: 1, height: '100%', border: 'none',
+    background: 'none', cursor: 'pointer',
+    fontSize: 10, color: 'var(--text-muted)',
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 2, transition: 'background 0.12s, color 0.12s',
+  },
+  mobileBarBtnActive: { color: 'var(--accent)', background: 'var(--accent-soft, rgba(0,0,0,0.04))' },
 };

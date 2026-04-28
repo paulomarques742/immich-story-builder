@@ -431,7 +431,6 @@ VITE_IMMICH_URL=https://immich.exemplo.com
 - [ ] Meta tags OpenGraph
 - [ ] Slugs personalizados
 - [ ] UI responsiva mobile
-- [ ] Dark mode no viewer
 
 ---
 

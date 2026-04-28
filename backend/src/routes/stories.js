@@ -21,9 +21,17 @@ function canEdit(user, story) {
 
 // GET /api/stories
 router.get('/', requireAuth, (req, res) => {
+  const cols = `
+    s.*,
+    (SELECT COUNT(*) FROM sync_notifications sn WHERE sn.story_id = s.id AND sn.dismissed = 0) as pending_sync,
+    (SELECT json_extract(b.content, '$.asset_id') FROM blocks b
+     WHERE b.story_id = s.id AND b.type = 'hero'
+       AND json_extract(b.content, '$.asset_id') != ''
+     ORDER BY b.position ASC LIMIT 1) as hero_asset_id
+  `;
   const base = req.user.role === 'admin'
-    ? db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM sync_notifications sn WHERE sn.story_id = s.id AND sn.dismissed = 0) as pending_sync FROM stories s ORDER BY s.updated_at DESC`).all()
-    : db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM sync_notifications sn WHERE sn.story_id = s.id AND sn.dismissed = 0) as pending_sync FROM stories s WHERE s.created_by = ? ORDER BY s.updated_at DESC`).all(req.user.id);
+    ? db.prepare(`SELECT ${cols} FROM stories s ORDER BY s.updated_at DESC`).all()
+    : db.prepare(`SELECT ${cols} FROM stories s WHERE s.created_by = ? ORDER BY s.updated_at DESC`).all(req.user.id);
   res.json(base);
 });
 

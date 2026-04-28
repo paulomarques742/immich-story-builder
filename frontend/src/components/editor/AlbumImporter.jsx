@@ -107,7 +107,7 @@ const s = {
   modal: {
     background: 'var(--surface)',
     borderRadius: 'var(--radius-lg)',
-    width: 480, maxHeight: '72vh',
+    width: 480, maxWidth: 'calc(100vw - 2rem)', maxHeight: '72vh',
     display: 'flex', flexDirection: 'column',
     boxShadow: 'var(--shadow-lg)',
     border: '1px solid var(--border)',

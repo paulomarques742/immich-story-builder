@@ -320,8 +320,46 @@ app.post('/api/public/:slug/likes/:assetId', (req, res) => {
 
 // ── Production frontend ───────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
+  const fs = require('fs');
   const frontendDist = path.join(__dirname, '../../frontend/dist');
+  const indexHtml = fs.readFileSync(path.join(frontendDist, 'index.html'), 'utf-8');
+
+  const esc = (s) => String(s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   app.use(express.static(frontendDist));
+
+  // OG meta tags para o viewer público
+  app.get('/:slug([a-z0-9][a-z0-9-]*)', (req, res, next) => {
+    const story = db.prepare(
+      'SELECT title, description, cover_asset_id, slug FROM stories WHERE slug = ? AND published = 1'
+    ).get(req.params.slug);
+    if (!story) return next();
+
+    const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    const ogImage = story.cover_asset_id
+      ? `${base}/api/public/${story.slug}/assets/${story.cover_asset_id}/thumb?size=preview`
+      : '';
+    const desc = story.description || story.title;
+
+    const tags = [
+      `<title>${esc(story.title)} · Memoire</title>`,
+      `<meta name="description" content="${esc(desc)}" />`,
+      `<meta property="og:type" content="website" />`,
+      `<meta property="og:url" content="${esc(`${base}/${story.slug}`)}" />`,
+      `<meta property="og:title" content="${esc(story.title)}" />`,
+      `<meta property="og:description" content="${esc(desc)}" />`,
+      ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : '',
+      `<meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />`,
+      `<meta name="twitter:title" content="${esc(story.title)}" />`,
+      `<meta name="twitter:description" content="${esc(desc)}" />`,
+      ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}" />` : '',
+    ].filter(Boolean).join('\n    ');
+
+    res.type('html').send(indexHtml.replace('<title>Memoire</title>', tags));
+  });
+
   app.get('*', (_req, res) => res.sendFile(path.join(frontendDist, 'index.html')));
 }
 

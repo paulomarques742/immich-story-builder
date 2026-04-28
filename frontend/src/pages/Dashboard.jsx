@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
 import { thumbUrl } from '../lib/immich.js';
+import StorySettingsModal from '../components/editor/StorySettingsModal.jsx';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const [editingStory, setEditingStory] = useState(null);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -72,35 +74,56 @@ export default function Dashboard() {
         )}
 
         <div style={s.grid}>
-          {stories.map((story) => (
-            <div
-              key={story.id}
-              className="card"
-              style={s.card}
-              onClick={() => navigate(`/editor/${story.id}`)}
-            >
-              <div style={s.cardThumb}>
-                {story.cover_asset_id
-                  ? <img src={thumbUrl(story.cover_asset_id)} alt="" style={s.cardImg} />
-                  : <div style={s.cardPlaceholder}><span style={s.placeholderIcon}>🌄</span></div>
-                }
-                <div style={s.cardBadge}>
-                  <span style={{ ...s.badge, ...(story.published ? s.badgePublished : s.badgeDraft) }}>
-                    {story.published ? 'Publicado' : 'Rascunho'}
-                  </span>
-                  {story.pending_sync > 0 && (
-                    <span style={s.badgeSync}>{story.pending_sync} novas</span>
-                  )}
+          {stories.map((story) => {
+            const thumbAsset = story.cover_asset_id || story.hero_asset_id;
+            return (
+              <div
+                key={story.id}
+                className="card"
+                style={s.card}
+                onClick={() => navigate(`/editor/${story.id}`)}
+              >
+                <div style={s.cardThumb}>
+                  {thumbAsset
+                    ? <img src={thumbUrl(thumbAsset, 'preview')} alt="" style={s.cardImg} />
+                    : <div style={s.cardPlaceholder}><span style={s.placeholderIcon}>🌄</span></div>
+                  }
+                  <div style={s.cardBadge}>
+                    <span style={{ ...s.badge, ...(story.published ? s.badgePublished : s.badgeDraft) }}>
+                      {story.published ? 'Publicado' : 'Rascunho'}
+                    </span>
+                    {story.pending_sync > 0 && (
+                      <span style={s.badgeSync}>{story.pending_sync} novas</span>
+                    )}
+                  </div>
+                </div>
+                <div style={s.cardBody}>
+                  <p style={s.cardTitle}>{story.title}</p>
+                  <div style={s.cardFooter}>
+                    <p style={s.cardSlug}>/{story.slug}</p>
+                    <button
+                      style={s.settingsBtn}
+                      title="Definições da story"
+                      onClick={(e) => { e.stopPropagation(); setEditingStory(story); }}
+                    >
+                      ⚙
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div style={s.cardBody}>
-                <p style={s.cardTitle}>{story.title}</p>
-                <p style={s.cardSlug}>/{story.slug}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
+
+      {editingStory && (
+        <StorySettingsModal
+          storyId={editingStory.id}
+          story={editingStory}
+          onSaved={(updated) => setStories((list) => list.map((s) => s.id === updated.id ? { ...s, ...updated } : s))}
+          onClose={() => setEditingStory(null)}
+        />
+      )}
 
       {showModal && (
         <div style={s.overlay} onClick={() => setShowModal(false)}>
@@ -198,8 +221,21 @@ const s = {
   badgeDraft: { background: 'rgba(0,0,0,0.08)', color: '#6b7280' },
   badgeSync: { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: 'rgba(234,88,12,0.12)', color: '#ea580c' },
   cardBody: { padding: '14px 16px 16px' },
-  cardTitle: { fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', marginBottom: 3, color: 'var(--text)' },
-  cardSlug: { fontSize: 12, color: 'var(--text-faint)', fontFamily: 'monospace' },
+  cardTitle: { fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', marginBottom: 6, color: 'var(--text)' },
+  cardFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  cardSlug: { fontSize: 12, color: 'var(--text-faint)', fontFamily: 'monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  settingsBtn: {
+    flexShrink: 0,
+    width: 28, height: 28,
+    border: '1px solid var(--border)',
+    background: 'var(--bg)',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    fontSize: 14,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: 'var(--text-muted)',
+    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+  },
   overlay: {
     position: 'fixed',
     inset: 0,
