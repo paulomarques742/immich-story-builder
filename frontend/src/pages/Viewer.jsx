@@ -117,13 +117,14 @@ export default function Viewer() {
     if (blocks.length === 0) return;
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) e.target.classList.add('mv-visible');
+        if (e.isIntersecting) {
+          e.target.classList.add('mv-visible');
+          observer.unobserve(e.target);
+        }
       }),
-      { threshold: 0.08 }
+      { threshold: 0, rootMargin: '0px 0px 80px 0px' }
     );
-    setTimeout(() => {
-      document.querySelectorAll('.mv-section').forEach((el) => observer.observe(el));
-    }, 100);
+    document.querySelectorAll('.mv-section').forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [blocks]);
 

@@ -4,12 +4,12 @@ Estes comandos correm **uma única vez** para configurar a infraestrutura.
 Substituir os valores em `< >` pelos teus.
 
 ```bash
-PROJECT_ID=<o-teu-project-id>
+PROJECT_ID=memoire-immich
 REGION=europe-west1
 SERVICE=memoire
 REPO=memoire
 BUCKET=memoire-immich-data
-GITHUB_OWNER=<o-teu-github-user>
+GITHUB_OWNER=paulomarques742
 GITHUB_REPO=immich-story-builder
 ```
 
