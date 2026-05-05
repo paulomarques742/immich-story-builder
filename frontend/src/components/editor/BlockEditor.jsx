@@ -34,14 +34,14 @@ export default function BlockEditor({ block, onChange, storyId }) {
   if (block.type === 'video') return <VideoEditor content={content} update={update} storyId={storyId} />;
   if (block.type === 'divider') return <DividerEditor content={content} update={update} />;
   if (block.type === 'spacer') return <SpacerEditor content={content} update={update} />;
-  return <p style={s.hint}>Sem editor para tipo "{block.type}"</p>;
+  return <p className="text-ink-faint text-sm text-center mt-2">Sem editor para tipo "{block.type}"</p>;
 }
 
 /* ── shared field wrapper ───────────────────────────────────── */
 function Field({ label, children }) {
   return (
-    <div style={s.field}>
-      <label style={s.label}>{label}</label>
+    <div className="flex flex-col gap-1 mb-3">
+      <label className="field-label">{label}</label>
       {children}
     </div>
   );
@@ -50,11 +50,11 @@ function Field({ label, children }) {
 /* ── toggle switch ───────────────────────────────────────────── */
 function Toggle({ checked, onChange, label }) {
   return (
-    <div style={s.toggleRow} onClick={() => onChange(!checked)}>
-      <div style={{ ...s.toggleTrack, ...(checked ? s.toggleTrackOn : {}) }}>
-        <div style={{ ...s.toggleThumb, ...(checked ? s.toggleThumbOn : {}) }} />
+    <div className="flex items-center gap-2 cursor-pointer py-0.5 select-none" onClick={() => onChange(!checked)}>
+      <div className={`w-7 h-4 rounded-full relative transition-colors shrink-0 ${checked ? 'bg-accent' : 'bg-border-strong'}`}>
+        <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-3' : 'translate-x-0'}`} style={{ left: 2 }} />
       </div>
-      <span style={s.toggleLabel}>{label}</span>
+      <span className="text-sm font-light text-ink-soft">{label}</span>
     </div>
   );
 }
@@ -64,40 +64,37 @@ function HeroEditor({ content, update, storyId }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Hero</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Hero</h3>
 
       <Field label="Imagem">
         {content.asset_id ? (
-          <div style={s.previewRow}>
-            <img src={thumbUrl(content.asset_id, 'thumbnail')} alt="" style={s.previewThumb} />
-            <div style={s.previewMeta}>
-              <p style={s.previewId}>{content.asset_id.substring(0, 8)}…</p>
-              <button style={s.previewChange} onClick={() => setPickerOpen(true)}>Alterar →</button>
+          <div className="flex gap-2.5 items-center">
+            <img src={thumbUrl(content.asset_id, 'thumbnail')} alt="" className="w-12 h-12 object-cover rounded-sm shrink-0 border border-border" />
+            <div className="flex flex-col gap-1 min-w-0">
+              <p className="text-2xs font-light text-ink-faint font-mono overflow-hidden text-ellipsis whitespace-nowrap">{content.asset_id.substring(0, 8)}…</p>
+              <button className="text-xs font-normal text-accent bg-transparent border-none cursor-pointer text-left p-0" onClick={() => setPickerOpen(true)}>Alterar →</button>
             </div>
           </div>
         ) : (
-          <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>
+          <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep hover:border-border-strong" onClick={() => setPickerOpen(true)}>
             Escolher da biblioteca…
           </button>
         )}
       </Field>
 
-      <div style={s.section}>
+      <div className="flex flex-col gap-2.5 pt-2.5 border-t border-border">
         <Field label="Título">
-          <input style={s.input} value={content.title || ''}
-            onChange={(e) => update('title', e.target.value)} placeholder="Título opcional" />
+          <input className="field-input" value={content.title || ''} onChange={(e) => update('title', e.target.value)} placeholder="Título opcional" />
         </Field>
-
         <Field label="Caption">
-          <input style={s.input} value={content.caption || ''}
-            onChange={(e) => update('caption', e.target.value)} placeholder="Subtítulo / legenda" />
+          <input className="field-input" value={content.caption || ''} onChange={(e) => update('caption', e.target.value)} placeholder="Subtítulo / legenda" />
         </Field>
       </div>
 
-      <div style={s.section}>
+      <div className="flex flex-col gap-2.5 pt-2.5 border-t border-border">
         <Field label="Altura">
-          <select style={s.input} className="field-select" value={content.height || 'full'} onChange={(e) => update('height', e.target.value)}>
+          <select className="field-select" value={content.height || 'full'} onChange={(e) => update('height', e.target.value)}>
             <option value="full">Full (100vh)</option>
             <option value="half">Half (50vh)</option>
             <option value="medium">Medium (340px)</option>
@@ -142,26 +139,9 @@ function SortableThumb({ id, onRemove }) {
       {...attributes}
       {...listeners}
     >
-      <img
-        src={thumbUrl(id, 'thumbnail')}
-        alt=""
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        draggable={false}
-      />
+      <img src={thumbUrl(id, 'thumbnail')} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} draggable={false} />
       <button
-        className="thumb-remove"
-        style={{
-          position: 'absolute', top: 3, right: 3,
-          width: 18, height: 18,
-          borderRadius: '50%',
-          border: 'none',
-          background: 'rgba(0,0,0,0.6)',
-          color: '#fff',
-          fontSize: 10,
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 0, lineHeight: 1,
-        }}
+        className="thumb-remove absolute top-0.5 right-0.5 w-[18px] h-[18px] rounded-full border-none bg-black/60 text-white text-[10px] cursor-pointer flex items-center justify-center p-0 leading-none"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onRemove(id); }}
         title="Remover"
@@ -174,59 +154,19 @@ function SortableThumb({ id, onRemove }) {
 
 function LayoutIcon({ type }) {
   const fill = 'currentColor';
-  if (type === 'single') return (
-    <svg viewBox="0 0 32 24" width="28" height="21" fill="none">
-      <rect x="1" y="1" width="30" height="22" rx="2" fill={fill} opacity="0.9"/>
-    </svg>
-  );
-  if (type === 'duo') return (
-    <svg viewBox="0 0 32 24" width="28" height="21" fill="none">
-      <rect x="1" y="1" width="13.5" height="22" rx="2" fill={fill}/>
-      <rect x="17.5" y="1" width="13.5" height="22" rx="2" fill={fill} opacity="0.6"/>
-    </svg>
-  );
-  if (type === 'asymmetric') return (
-    <svg viewBox="0 0 32 24" width="28" height="21" fill="none">
-      <rect x="1" y="1" width="19" height="22" rx="2" fill={fill}/>
-      <rect x="22" y="1" width="9" height="10" rx="1.5" fill={fill} opacity="0.65"/>
-      <rect x="22" y="13" width="9" height="10" rx="1.5" fill={fill} opacity="0.65"/>
-    </svg>
-  );
-  if (type === 'grid3') return (
-    <svg viewBox="0 0 32 24" width="28" height="21" fill="none">
-      <rect x="1" y="1" width="8.5" height="22" rx="2" fill={fill}/>
-      <rect x="11.75" y="1" width="8.5" height="22" rx="2" fill={fill} opacity="0.7"/>
-      <rect x="22.5" y="1" width="8.5" height="22" rx="2" fill={fill} opacity="0.45"/>
-    </svg>
-  );
-  if (type === 'grid4') return (
-    <svg viewBox="0 0 32 24" width="28" height="21" fill="none">
-      <rect x="1" y="1" width="5.75" height="22" rx="1.5" fill={fill}/>
-      <rect x="8.75" y="1" width="5.75" height="22" rx="1.5" fill={fill} opacity="0.75"/>
-      <rect x="15.75" y="1" width="5.75" height="22" rx="1.5" fill={fill} opacity="0.55"/>
-      <rect x="22.75" y="1" width="8.25" height="22" rx="1.5" fill={fill} opacity="0.35"/>
-    </svg>
-  );
+  if (type === 'single') return <svg viewBox="0 0 32 24" width="28" height="21" fill="none"><rect x="1" y="1" width="30" height="22" rx="2" fill={fill} opacity="0.9"/></svg>;
+  if (type === 'duo') return <svg viewBox="0 0 32 24" width="28" height="21" fill="none"><rect x="1" y="1" width="13.5" height="22" rx="2" fill={fill}/><rect x="17.5" y="1" width="13.5" height="22" rx="2" fill={fill} opacity="0.6"/></svg>;
+  if (type === 'asymmetric') return <svg viewBox="0 0 32 24" width="28" height="21" fill="none"><rect x="1" y="1" width="19" height="22" rx="2" fill={fill}/><rect x="22" y="1" width="9" height="10" rx="1.5" fill={fill} opacity="0.65"/><rect x="22" y="13" width="9" height="10" rx="1.5" fill={fill} opacity="0.65"/></svg>;
+  if (type === 'grid3') return <svg viewBox="0 0 32 24" width="28" height="21" fill="none"><rect x="1" y="1" width="8.5" height="22" rx="2" fill={fill}/><rect x="11.75" y="1" width="8.5" height="22" rx="2" fill={fill} opacity="0.7"/><rect x="22.5" y="1" width="8.5" height="22" rx="2" fill={fill} opacity="0.45"/></svg>;
+  if (type === 'grid4') return <svg viewBox="0 0 32 24" width="28" height="21" fill="none"><rect x="1" y="1" width="5.75" height="22" rx="1.5" fill={fill}/><rect x="8.75" y="1" width="5.75" height="22" rx="1.5" fill={fill} opacity="0.75"/><rect x="15.75" y="1" width="5.75" height="22" rx="1.5" fill={fill} opacity="0.55"/><rect x="22.75" y="1" width="8.25" height="22" rx="1.5" fill={fill} opacity="0.35"/></svg>;
   return null;
 }
 
 function AspectIcon({ type }) {
   const fill = 'currentColor';
-  if (type === 'square') return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-      <rect x="2" y="2" width="20" height="20" rx="2.5" fill={fill}/>
-    </svg>
-  );
-  if (type === 'landscape') return (
-    <svg viewBox="0 0 24 24" width="24" height="18" fill="none">
-      <rect x="1" y="2" width="22" height="14" rx="2.5" fill={fill}/>
-    </svg>
-  );
-  if (type === 'portrait') return (
-    <svg viewBox="0 0 24 24" width="16" height="22" fill="none">
-      <rect x="2" y="1" width="14" height="22" rx="2.5" fill={fill}/>
-    </svg>
-  );
+  if (type === 'square') return <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><rect x="2" y="2" width="20" height="20" rx="2.5" fill={fill}/></svg>;
+  if (type === 'landscape') return <svg viewBox="0 0 24 24" width="24" height="18" fill="none"><rect x="1" y="2" width="22" height="14" rx="2.5" fill={fill}/></svg>;
+  if (type === 'portrait') return <svg viewBox="0 0 24 24" width="16" height="22" fill="none"><rect x="2" y="1" width="14" height="22" rx="2.5" fill={fill}/></svg>;
   return null;
 }
 
@@ -274,8 +214,8 @@ function GridEditor({ content, update, updateMany, storyId }) {
   }
 
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Grid</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Grid</h3>
 
       <Field label="Layout">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5 }}>
@@ -305,7 +245,7 @@ function GridEditor({ content, update, updateMany, storyId }) {
           })}
         </div>
         {activeLayout === 'asymmetric' && (
-          <p style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 5, lineHeight: 1.4 }}>Requer 3+ fotos</p>
+          <p className="text-2xs text-ink-faint mt-1 leading-snug">Requer 3+ fotos</p>
         )}
       </Field>
 
@@ -342,13 +282,13 @@ function GridEditor({ content, update, updateMany, storyId }) {
       )}
 
       <Field label={`Imagens (${assetIds.length})`}>
-        <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>
+        <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={() => setPickerOpen(true)}>
           Seleccionar da biblioteca…
         </button>
         {assetIds.length > 0 && (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={assetIds} strategy={rectSortingStrategy}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+              <div className="flex flex-wrap gap-1 mt-2">
                 {assetIds.map((id) => (
                   <SortableThumb key={id} id={id} onRemove={removePhoto} />
                 ))}
@@ -359,7 +299,7 @@ function GridEditor({ content, update, updateMany, storyId }) {
       </Field>
 
       <Field label="Gap">
-        <select style={s.input} className="field-select" value={content.gap || 'sm'} onChange={(e) => update('gap', e.target.value)}>
+        <select className="field-select" value={content.gap || 'sm'} onChange={(e) => update('gap', e.target.value)}>
           <option value="sm">Pequeno</option>
           <option value="md">Médio</option>
           <option value="lg">Grande</option>
@@ -382,8 +322,8 @@ function GridEditor({ content, update, updateMany, storyId }) {
 /* ── Text editor ─────────────────────────────────────────────── */
 function TextEditor({ content, update }) {
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Texto</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Texto</h3>
 
       <Field label="Markdown">
         <div data-color-mode="light">
@@ -396,17 +336,16 @@ function TextEditor({ content, update }) {
         </div>
       </Field>
 
-      <div style={s.fieldRow}>
+      <div className="grid grid-cols-2 gap-2">
         <Field label="Alinhamento">
-          <select style={s.input} className="field-select" value={content.align || 'left'} onChange={(e) => update('align', e.target.value)}>
+          <select className="field-select" value={content.align || 'left'} onChange={(e) => update('align', e.target.value)}>
             <option value="left">Esquerda</option>
             <option value="center">Centro</option>
             <option value="right">Direita</option>
           </select>
         </Field>
-
         <Field label="Largura">
-          <select style={s.input} className="field-select" value={content.max_width || 'prose'} onChange={(e) => update('max_width', e.target.value)}>
+          <select className="field-select" value={content.max_width || 'prose'} onChange={(e) => update('max_width', e.target.value)}>
             <option value="narrow">Estreita</option>
             <option value="prose">Prose</option>
             <option value="wide">Larga</option>
@@ -439,20 +378,19 @@ function MapEditor({ content, update, onChange, setContent }) {
   }
 
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Mapa</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Mapa</h3>
 
-      <div style={s.fieldRow}>
+      <div className="grid grid-cols-2 gap-2">
         <Field label="Estilo">
-          <select style={s.input} className="field-select" value={content.skin || 'standard'} onChange={(e) => update('skin', e.target.value)}>
+          <select className="field-select" value={content.skin || 'standard'} onChange={(e) => update('skin', e.target.value)}>
             <option value="standard">Standard</option>
             <option value="memoire">Mémoire</option>
             <option value="ghost">Ghost</option>
           </select>
         </Field>
-
         <Field label="Modo">
-          <select style={s.input} className="field-select" value={content.mode || 'manual'} onChange={(e) => update('mode', e.target.value)}>
+          <select className="field-select" value={content.mode || 'manual'} onChange={(e) => update('mode', e.target.value)}>
             <option value="manual">Pin manual</option>
             <option value="auto">GPS auto</option>
           </select>
@@ -461,17 +399,19 @@ function MapEditor({ content, update, onChange, setContent }) {
 
       {(content.mode || 'manual') === 'manual' && (
         <>
-          <Field label="Latitude">
-            <input style={s.input} type="number" step="any" value={content.lat ?? ''} onChange={(e) => update('lat', parseFloat(e.target.value) || null)} placeholder="38.7169" />
-          </Field>
-          <Field label="Longitude">
-            <input style={s.input} type="number" step="any" value={content.lng ?? ''} onChange={(e) => update('lng', parseFloat(e.target.value) || null)} placeholder="-9.1399" />
-          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Latitude">
+              <input className="field-input" type="number" step="any" value={content.lat ?? ''} onChange={(e) => update('lat', parseFloat(e.target.value) || null)} placeholder="38.7169" />
+            </Field>
+            <Field label="Longitude">
+              <input className="field-input" type="number" step="any" value={content.lng ?? ''} onChange={(e) => update('lng', parseFloat(e.target.value) || null)} placeholder="-9.1399" />
+            </Field>
+          </div>
           <Field label="Zoom">
-            <input style={s.input} type="number" min="1" max="18" value={content.zoom ?? 12} onChange={(e) => update('zoom', parseInt(e.target.value) || 12)} />
+            <input className="field-input" type="number" min="1" max="18" value={content.zoom ?? 12} onChange={(e) => update('zoom', parseInt(e.target.value) || 12)} />
           </Field>
           <Field label="Etiqueta">
-            <input style={s.input} value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="Lisboa" />
+            <input className="field-input" value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="Lisboa" />
           </Field>
         </>
       )}
@@ -479,17 +419,17 @@ function MapEditor({ content, update, onChange, setContent }) {
       {content.mode === 'auto' && (
         <>
           <Field label={`Assets GPS (${(content.asset_ids || []).length})`}>
-            <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>Seleccionar assets…</button>
+            <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={() => setPickerOpen(true)}>Seleccionar assets…</button>
             {(content.resolved_markers || []).length > 0 && (
-              <p style={{ fontSize: 11, color: 'var(--ink-faint)', fontWeight: 300, marginTop: 4 }}>{content.resolved_markers.length} ponto(s) resolvido(s)</p>
+              <p className="text-2xs text-ink-faint font-light mt-1">{content.resolved_markers.length} ponto(s) resolvido(s)</p>
             )}
           </Field>
-          <button style={s.btnPickFull} onClick={resolveGPS} disabled={resolving || !(content.asset_ids || []).length}>
+          <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={resolveGPS} disabled={resolving || !(content.asset_ids || []).length}>
             {resolving ? 'A resolver GPS...' : '📍 Resolver coordenadas GPS'}
           </button>
           <Toggle checked={!!content.show_route} onChange={(v) => update('show_route', v)} label="Ligar pontos com linha" />
           <Field label="Cor da rota">
-            <input style={{ ...s.input, padding: 2, height: 34 }} type="color" value={content.route_color || '#E07B54'} onChange={(e) => update('route_color', e.target.value)} />
+            <input className="field-input" style={{ padding: 2, height: 34 }} type="color" value={content.route_color || '#E07B54'} onChange={(e) => update('route_color', e.target.value)} />
           </Field>
         </>
       )}
@@ -506,27 +446,27 @@ function MapEditor({ content, update, onChange, setContent }) {
 function VideoEditor({ content, update, storyId }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Vídeo</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Vídeo</h3>
       <Field label="Vídeo">
         {content.asset_id ? (
-          <div style={s.previewRow}>
-            <div style={s.previewVideoThumb}>
+          <div className="flex gap-2.5 items-center">
+            <div className="w-12 h-12 shrink-0 rounded-sm bg-ink flex items-center justify-center border border-border">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="var(--paper)"><polygon points="3,2 10,6 3,10"/></svg>
             </div>
-            <div style={s.previewMeta}>
-              <p style={s.previewId}>{content.asset_id.substring(0, 8)}…</p>
-              <button style={s.previewChange} onClick={() => setPickerOpen(true)}>Alterar →</button>
+            <div className="flex flex-col gap-1 min-w-0">
+              <p className="text-2xs font-light text-ink-faint font-mono overflow-hidden text-ellipsis whitespace-nowrap">{content.asset_id.substring(0, 8)}…</p>
+              <button className="text-xs font-normal text-accent bg-transparent border-none cursor-pointer text-left p-0" onClick={() => setPickerOpen(true)}>Alterar →</button>
             </div>
           </div>
         ) : (
-          <button style={s.btnPickFull} onClick={() => setPickerOpen(true)}>Escolher vídeo…</button>
+          <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={() => setPickerOpen(true)}>Escolher vídeo…</button>
         )}
       </Field>
       <Field label="Caption">
-        <input style={s.input} value={content.caption || ''} onChange={(e) => update('caption', e.target.value)} placeholder="Legenda opcional" />
+        <input className="field-input" value={content.caption || ''} onChange={(e) => update('caption', e.target.value)} placeholder="Legenda opcional" />
       </Field>
-      <div style={s.section}>
+      <div className="flex flex-col gap-2.5 pt-2.5 border-t border-border">
         <Toggle checked={!!content.autoplay} onChange={(v) => update('autoplay', v)} label="Autoplay" />
         <Toggle checked={!!content.loop} onChange={(v) => update('loop', v)} label="Loop" />
       </div>
@@ -541,23 +481,19 @@ function VideoEditor({ content, update, storyId }) {
 /* ── Quote editor ─────────────────────────────────────────────── */
 function QuoteEditor({ content, update }) {
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Citação</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Citação</h3>
       <Field label="Texto da citação">
         <textarea
-          style={{ ...s.input, height: 100, resize: 'vertical' }}
+          className="field-textarea"
+          style={{ height: 100 }}
           value={content.quote || ''}
           onChange={(e) => update('quote', e.target.value)}
           placeholder="Uma frase memorável…"
         />
       </Field>
       <Field label="Autor (opcional)">
-        <input
-          style={s.input}
-          value={content.author || ''}
-          onChange={(e) => update('author', e.target.value)}
-          placeholder="Nome do autor"
-        />
+        <input className="field-input" value={content.author || ''} onChange={(e) => update('author', e.target.value)} placeholder="Nome do autor" />
       </Field>
     </div>
   );
@@ -566,10 +502,10 @@ function QuoteEditor({ content, update }) {
 /* ── Spacer editor ────────────────────────────────────────────── */
 function SpacerEditor({ content, update }) {
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Espaço</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Espaço</h3>
       <Field label="Altura">
-        <select style={s.input} className="field-select" value={content.height || 'md'} onChange={(e) => update('height', e.target.value)}>
+        <select className="field-select" value={content.height || 'md'} onChange={(e) => update('height', e.target.value)}>
           <option value="sm">Pequeno (40px)</option>
           <option value="md">Médio (80px)</option>
           <option value="lg">Grande (140px)</option>
@@ -582,14 +518,14 @@ function SpacerEditor({ content, update }) {
 /* ── Divider editor ───────────────────────────────────────────── */
 function DividerEditor({ content, update }) {
   return (
-    <div style={s.form}>
-      <h3 style={s.heading}>Divisor</h3>
-      <div style={s.fieldRow}>
+    <div className="flex flex-col gap-3">
+      <h3 className="font-display italic font-medium text-lg text-ink mb-1 pb-2.5 border-b border-border">Divisor</h3>
+      <div className="grid grid-cols-2 gap-2">
         <Field label="Etiqueta">
-          <input style={s.input} value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="2024 · Verão" />
+          <input className="field-input" value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="2024 · Verão" />
         </Field>
         <Field label="Estilo">
-          <select style={s.input} className="field-select" value={content.style || 'line'} onChange={(e) => update('style', e.target.value)}>
+          <select className="field-select" value={content.style || 'line'} onChange={(e) => update('style', e.target.value)}>
             <option value="line">Linha</option>
             <option value="space">Espaço</option>
           </select>
@@ -598,105 +534,3 @@ function DividerEditor({ content, update }) {
     </div>
   );
 }
-
-/* ── styles ──────────────────────────────────────────────────── */
-const s = {
-  form: { display: 'flex', flexDirection: 'column', gap: 12 },
-  heading: {
-    fontFamily: 'var(--font-display)',
-    fontStyle: 'italic',
-    fontWeight: 500,
-    fontSize: 16,
-    letterSpacing: '0.01em',
-    marginBottom: 4,
-    paddingBottom: 10,
-    borderBottom: '0.5px solid var(--border)',
-    color: 'var(--ink)',
-  },
-  field: { display: 'flex', flexDirection: 'column', gap: 4 },
-  fieldRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
-  section: {
-    display: 'flex', flexDirection: 'column', gap: 10,
-    paddingTop: 10, borderTop: '0.5px solid var(--border)',
-  },
-  label: {
-    fontSize: 9,
-    color: 'var(--ink-faint)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    fontWeight: 500,
-  },
-  input: {
-    padding: '6px 9px',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    fontSize: 12,
-    fontWeight: 300,
-    width: '100%',
-    background: 'var(--paper-warm)',
-    color: 'var(--ink-soft)',
-    outline: 'none',
-    transition: 'border-color 0.12s, box-shadow 0.12s',
-  },
-  btnPickFull: {
-    padding: '8px 12px',
-    border: '1px dashed var(--border-strong)',
-    borderRadius: 'var(--radius-sm)',
-    background: 'var(--paper-warm)',
-    fontSize: 11,
-    fontWeight: 400,
-    color: 'var(--ink-muted)',
-    cursor: 'pointer',
-    width: '100%',
-    textAlign: 'center',
-    transition: 'background 0.12s, border-color 0.12s',
-  },
-  /* compact image/video preview row */
-  previewRow: { display: 'flex', gap: 10, alignItems: 'center' },
-  previewThumb: {
-    width: 48, height: 48, objectFit: 'cover',
-    borderRadius: 4, flexShrink: 0,
-    border: '1px solid var(--border)',
-  },
-  previewVideoThumb: {
-    width: 48, height: 48, flexShrink: 0,
-    borderRadius: 4, background: 'var(--ink)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: '1px solid var(--border)',
-  },
-  previewMeta: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
-  previewId: {
-    fontSize: 10, fontWeight: 300, color: 'var(--ink-faint)',
-    fontFamily: 'monospace', overflow: 'hidden',
-    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  },
-  previewChange: {
-    fontSize: 11, fontWeight: 400, color: 'var(--mv-accent)',
-    background: 'none', border: 'none', cursor: 'pointer',
-    textAlign: 'left', padding: 0,
-  },
-  /* toggle switch */
-  toggleRow: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    cursor: 'pointer', padding: '1px 0', userSelect: 'none',
-  },
-  toggleTrack: {
-    width: 28, height: 16, borderRadius: 8,
-    background: 'var(--border-strong)',
-    position: 'relative',
-    transition: 'background 0.15s',
-    flexShrink: 0,
-  },
-  toggleTrackOn: { background: 'var(--mv-accent)' },
-  toggleThumb: {
-    position: 'absolute', top: 2, left: 2,
-    width: 12, height: 12, borderRadius: '50%',
-    background: '#fff',
-    transition: 'transform 0.15s',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-  },
-  toggleThumbOn: { transform: 'translateX(12px)' },
-  toggleLabel: { fontSize: 12, fontWeight: 300, color: 'var(--ink-soft)' },
-  /* misc */
-  hint: { color: 'var(--ink-faint)', fontSize: 12, textAlign: 'center', marginTop: 8 },
-};

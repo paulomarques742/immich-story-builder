@@ -14,6 +14,8 @@ const storiesRoutes = require('./routes/stories');
 const blocksRoutes = require('./routes/blocks');
 const immichRoutes = require('./routes/immich');
 const commentsRoutes = require('./routes/comments');
+const notificationsRoutes = require('./routes/notifications');
+const socialRoutes = require('./routes/social');
 const aiRoutes = require('./routes/ai');
 const contributionsRoutes = require('./routes/contributions');
 const startSyncJob = require('./sync');
@@ -82,6 +84,8 @@ app.use('/api/stories', storiesRoutes);
 app.use('/api/stories/:storyId/blocks', blocksRoutes);
 app.use('/api/immich', immichRoutes);
 app.use('/api', commentsRoutes);
+app.use('/api', notificationsRoutes);
+app.use('/api', socialRoutes);
 app.use('/api', contributionsRoutes);
 
 // ── Public story: GET /api/public/:slug ───────────────────────
@@ -310,7 +314,7 @@ app.get('/api/public/:slug/comments/:assetId', (req, res) => {
 
 // POST /api/public/:slug/comments/:assetId
 app.post('/api/public/:slug/comments/:assetId', (req, res) => {
-  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
+  const story = db.prepare('SELECT id, title, slug, created_by FROM stories WHERE slug = ? AND published = 1').get(req.params.slug);
   if (!story) return res.status(404).json({ error: 'Not found' });
 
   const { author_name, body } = req.body;
@@ -322,6 +326,19 @@ app.post('/api/public/:slug/comments/:assetId', (req, res) => {
   db.prepare(
     'INSERT INTO comments (id, story_id, asset_id, author_name, body) VALUES (?, ?, ?, ?, ?)'
   ).run(id, story.id, req.params.assetId, author_name.trim(), body.trim());
+
+  if (story.created_by) {
+    db.prepare(
+      'INSERT INTO notifications (id, user_id, type, payload) VALUES (?, ?, ?, ?)'
+    ).run(uuidv4(), story.created_by, 'new_comment', JSON.stringify({
+      story_id: story.id,
+      story_title: story.title,
+      story_slug: story.slug,
+      comment_id: id,
+      author_name: author_name.trim(),
+      body: body.trim().slice(0, 120),
+    }));
+  }
 
   res.status(201).json(db.prepare('SELECT id, author_name, body, created_at FROM comments WHERE id = ?').get(id));
 });

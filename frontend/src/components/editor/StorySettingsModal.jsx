@@ -62,16 +62,32 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
   }
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-        <h3 style={s.heading}>Definições da story</h3>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center"
+      style={{ background: 'rgba(26,24,20,0.5)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper border border-border rounded-lg"
+        style={{ width: 480, maxWidth: 'calc(100vw - 2rem)', padding: '1.75rem 2rem', boxShadow: '0 24px 64px rgba(26,24,20,0.2)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={s.field}>
-            <label style={s.label}>Título</label>
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h3 className="font-display text-2xl italic font-light text-ink leading-none">Definições da story</h3>
+            <p className="text-xs font-light text-ink-faint mt-1.5">Título, descrição e URL pública</p>
+          </div>
+          <button className="btn btn-ghost btn-sm text-ink-faint mt-0.5" onClick={onClose}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
+          <div className="flex flex-col gap-1.5">
+            <label className="field-label">Título</label>
             <input
-              className="field"
-              style={s.input}
+              className="field-input"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               placeholder="Título da story"
@@ -79,11 +95,13 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
             />
           </div>
 
-          <div style={s.field}>
-            <label style={s.label}>Descrição <span style={s.optional}>(opcional)</span></label>
+          <div className="flex flex-col gap-1.5">
+            <label className="field-label">
+              Descrição
+              <span className="ml-1 font-light normal-case tracking-normal opacity-55">(opcional)</span>
+            </label>
             <textarea
-              className="field"
-              style={{ ...s.input, resize: 'vertical', minHeight: 72 }}
+              className="field-textarea"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="Breve descrição da story…"
@@ -91,28 +109,30 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
             />
           </div>
 
-          <div style={s.field}>
-            <label style={s.label}>Slug (URL pública)</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="field-label">URL pública (slug)</label>
             <input
-              className="field"
-              style={{ ...s.input, fontFamily: 'monospace', fontSize: 13 }}
+              className="field-input font-mono"
+              style={{ fontSize: 13 }}
               value={form.slug}
               onChange={handleSlugChange}
               placeholder="o-meu-slug"
               spellCheck={false}
             />
-            <p style={s.urlPreview}>/{form.slug || '…'}</p>
+            <p className="text-xs font-light text-ink-faint font-mono">/{form.slug || '…'}</p>
             {slugChanged && !slugError && (
-              <p style={s.warn}>⚠ O link público vai mudar — partilhas antigas deixam de funcionar</p>
+              <p className="text-xs font-light text-ink-muted bg-paper-deep px-2.5 py-1.5 rounded-sm border border-border">
+                ⚠ O link público vai mudar — partilhas antigas deixam de funcionar
+              </p>
             )}
           </div>
 
-          {error && <p style={s.errorMsg}>{error}</p>}
+          {error && (
+            <p className="text-sm font-light text-danger bg-danger/6 px-3 py-2 rounded-sm border border-danger/20">{error}</p>
+          )}
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
-              Cancelar
-            </button>
+          <div className="flex gap-2 justify-end" style={{ marginTop: 4 }}>
+            <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>Cancelar</button>
             <button
               className="btn btn-primary"
               type="submit"
@@ -121,50 +141,9 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
               {saving ? 'A guardar…' : 'Guardar'}
             </button>
           </div>
+
         </form>
       </div>
     </div>
   );
 }
-
-const s = {
-  overlay: {
-    position: 'fixed', inset: 0,
-    background: 'rgba(26,24,20,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 100, backdropFilter: 'blur(3px)',
-  },
-  modal: {
-    background: 'var(--paper)',
-    borderRadius: 'var(--radius-lg)',
-    padding: '28px 32px',
-    width: 440,
-    maxWidth: 'calc(100vw - 2rem)',
-    boxShadow: 'var(--shadow-lg)',
-    border: '0.5px solid var(--border)',
-  },
-  heading: {
-    fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 500,
-    color: 'var(--ink)', marginBottom: 20,
-  },
-  field: { display: 'flex', flexDirection: 'column', gap: 5 },
-  label: { fontSize: 11, fontWeight: 500, color: 'var(--ink-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' },
-  optional: { fontWeight: 300, opacity: 0.6, textTransform: 'none', letterSpacing: 0 },
-  input: { fontSize: 13, padding: '9px 12px' },
-  urlPreview: {
-    fontSize: 12, fontWeight: 300, color: 'var(--ink-faint)',
-    fontFamily: 'monospace', marginTop: 2,
-  },
-  warn: {
-    fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)',
-    background: 'var(--paper-deep)', padding: '6px 10px',
-    borderRadius: 'var(--radius-sm)', marginTop: 4,
-    border: '0.5px solid var(--border)',
-  },
-  errorMsg: {
-    fontSize: 13, fontWeight: 300, color: 'var(--danger)',
-    background: 'rgba(176,80,80,0.06)', padding: '8px 12px',
-    borderRadius: 'var(--radius-sm)',
-    border: '0.5px solid rgba(176,80,80,0.2)',
-  },
-};

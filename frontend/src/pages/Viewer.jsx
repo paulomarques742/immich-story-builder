@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 import StoryNav from '../components/viewer/StoryNav.jsx';
@@ -54,6 +54,7 @@ function groupIntoSections(blocks) {
 
 export default function Viewer() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const [story, setStory] = useState(null);
   const [blocks, setBlocks] = useState([]);
   const [locked, setLocked] = useState(false);
@@ -89,6 +90,16 @@ export default function Viewer() {
   }
 
   useEffect(() => { load(storyToken()); }, [slug]);
+
+  // Deep-link: ?photo=asset_id opens the lightbox on that photo
+  useEffect(() => {
+    if (!blocks.length) return;
+    const photoId = searchParams.get('photo');
+    if (!photoId) return;
+    const registry = buildPhotoRegistry(blocks);
+    const idx = registry.findIndex((p) => p.assetId === photoId);
+    if (idx !== -1) setLightboxIndex(idx);
+  }, [blocks]);
 
   // Fingerprint anónimo persistido no localStorage
   useEffect(() => {

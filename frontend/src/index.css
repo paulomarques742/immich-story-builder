@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 
 :root {
@@ -83,85 +86,52 @@ select:focus {
   box-shadow: 0 0 0 2px rgba(196,121,90,0.15);
 }
 
-/* ── Buttons ──────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────── */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s, transform 0.1s;
-  white-space: nowrap;
-  flex-shrink: 0;
+  @apply inline-flex items-center gap-1.5 px-3.5 py-1.5
+         font-body text-sm font-normal rounded-sm border
+         cursor-pointer transition-all duration-150 whitespace-nowrap select-none;
 }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 
 .btn-primary {
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-  box-shadow: 0 1px 3px rgba(26,24,20,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.btn-primary:hover {
-  background: var(--ink-soft);
-  border-color: var(--ink-soft);
-  box-shadow: 0 2px 8px rgba(26,24,20,0.22), inset 0 1px 0 rgba(255,255,255,0.06);
+  @apply bg-ink text-paper border-ink
+         hover:bg-ink-soft hover:border-ink-soft;
 }
 
 .btn-accent {
-  background: var(--mv-accent);
-  color: #fff;
-  border-color: var(--mv-accent);
-  box-shadow: 0 1px 3px rgba(196,121,90,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
-}
-.btn-accent:hover {
-  background: var(--mv-accent-soft);
-  border-color: var(--mv-accent-soft);
-  box-shadow: 0 3px 12px rgba(196,121,90,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+  @apply bg-accent text-white border-accent
+         hover:bg-accent-soft hover:border-accent-soft
+         hover:shadow-sm;
 }
 
 .btn-secondary {
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  border-color: var(--border-strong);
-  box-shadow: 0 1px 2px rgba(26,24,20,0.06);
-}
-.btn-secondary:hover {
-  background: var(--paper-deep);
-  border-color: var(--border-strong);
-  color: var(--ink);
-  box-shadow: 0 2px 6px rgba(26,24,20,0.09);
+  @apply bg-paper-warm text-ink-soft border-border
+         hover:bg-paper-deep hover:border-border-strong hover:text-ink;
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--ink-muted);
-  border-color: transparent;
-  font-weight: 400;
-}
-.btn-ghost:hover {
-  background: var(--paper-warm);
-  color: var(--ink);
-  border-color: var(--border);
+  @apply bg-transparent text-ink-muted border-transparent
+         hover:bg-paper-warm hover:text-ink;
 }
 
 .btn-danger {
-  background: transparent;
-  color: var(--danger);
-  border-color: rgba(176,80,80,0.35);
-}
-.btn-danger:hover {
-  background: rgba(176,80,80,0.07);
-  border-color: rgba(176,80,80,0.5);
+  @apply bg-transparent text-danger border-danger/30
+         hover:bg-danger/7;
 }
 
+.btn-sm {
+  @apply px-2.5 py-1 text-xs;
+}
+
+.btn-icon {
+  @apply w-7 h-7 p-0 justify-center
+         bg-paper-warm border-border text-ink-muted rounded-xs
+         hover:bg-paper-deep hover:text-ink;
+}
+
+/* ── btn-warn (not in migration scope — keep as plain CSS) ────── */
 .btn-warn {
   background: var(--warn-bg);
   color: var(--warn-text);
@@ -171,33 +141,70 @@ select:focus {
 }
 .btn-warn:hover { background: #fef3c7; }
 
-.btn-lg { padding: 10px 20px; font-size: 13px; }
-
-/* ── Inputs / Selects ─────────────────────────────────────────── */
-.field {
-  width: 100%;
-  padding: 8px 11px;
-  border: 0.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 300;
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  outline: none;
-  transition: border-color 0.12s, box-shadow 0.12s;
+/* ── Badges ──────────────────────────────────────────────────── */
+.badge {
+  @apply inline-flex items-center px-2 py-0.5
+         font-body text-2xs font-normal rounded-xs
+         tracking-wider leading-snug;
 }
-.field:focus { border-color: var(--border-strong); box-shadow: 0 0 0 2px rgba(196,121,90,0.1); }
-.field::placeholder { color: var(--text-faint); }
 
-/* ── Custom select (remove native browser chrome) ─────────────── */
+.badge-published {
+  @apply bg-success-pale text-success border border-success/20;
+}
+
+.badge-draft {
+  @apply bg-paper/90 text-ink-muted border border-ink/10
+         backdrop-blur-sm;
+}
+
+.badge-new {
+  @apply bg-accent-pale text-accent border border-accent/20;
+}
+
+/* ── Form fields ─────────────────────────────────────────────── */
+.field-label {
+  @apply block font-body text-2xs font-medium text-ink-muted
+         uppercase tracking-widest mb-2;
+}
+
+.field-input,
+.field-select,
+.field-textarea {
+  @apply w-full px-3.5 py-2.5 font-body text-base font-light
+         bg-paper-warm text-ink-soft
+         border border-border rounded-xs
+         outline-none transition-all duration-100
+         placeholder:text-ink-faint
+         focus:border-border-strong focus:shadow-[0_0_0_2px_rgba(196,121,90,0.15)];
+}
+
 .field-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23b8b2a8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 30px !important;
-  cursor: pointer;
+  @apply appearance-none cursor-pointer;
+}
+
+.field-textarea {
+  @apply resize-y min-h-[96px] leading-relaxed;
+}
+
+/* ── Sidebar (dark) ──────────────────────────────────────────── */
+.sidebar-item {
+  @apply flex items-center justify-between
+         px-3.5 py-1.5 text-xs font-light
+         text-ink-faint/70 border-l-2 border-transparent
+         cursor-pointer transition-all duration-100
+         hover:bg-white/5;
+}
+
+.sidebar-item-active {
+  @apply bg-accent/10 border-l-accent text-paper/90 pl-3;
+}
+
+/* ── Sync notification badge ─────────────────────────────────── */
+.sync-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1
+         font-body text-xs font-normal
+         bg-accent/10 text-accent border border-accent/25
+         rounded-xs cursor-pointer;
 }
 
 /* ── Slug monospace fix ───────────────────────────────────────── */
@@ -208,12 +215,6 @@ select:focus {
   font-weight: 300;
 }
 
-/* ── Dashboard mobile ─────────────────────────────────────────── */
-@media (max-width: 580px) {
-  .dashboard-header { padding: 0 16px !important; }
-  .dashboard-body { padding: 20px 16px !important; }
-  .dashboard-grid { grid-template-columns: 1fr !important; }
-}
 
 /* ── Editor props panel scroll ────────────────────────────────── */
 .props-scroll { overscroll-behavior: contain; }
@@ -403,20 +404,6 @@ select:focus {
   .mv-comment-form-grid { grid-template-columns: 1fr !important; }
   .mv-footer-inner { flex-direction: column; align-items: center; text-align: center; padding: 2rem 1.25rem !important; gap: 1rem; }
   .mv-topbar { padding: 0 1.25rem !important; }
-}
-
-/* ── Cards ────────────────────────────────────────────────────── */
-.card {
-  background: var(--paper);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(26,24,20,0.06);
-  transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
-}
-.card:hover {
-  box-shadow: 0 6px 20px rgba(26,24,20,0.10);
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
 }
 
 /* ── Asset Picker ─────────────────────────────────────────────── */

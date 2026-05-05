@@ -5,6 +5,71 @@ import { thumbUrl } from '../../lib/immich.js';
 const NONE_ALBUM = { id: '__none__', albumName: 'Fora de álbuns' };
 const CONTRIB_ALBUM = { id: '__contributions__', albumName: '📥 Contribuições' };
 
+function AssetGrid({ assets, picked, onToggle, isMobile }) {
+  const minSize = isMobile ? 78 : 92;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minSize}px, 1fr))`, gap: isMobile ? 4 : 5 }}>
+      {assets.map((a) => (
+        <div
+          key={a.id}
+          className="group relative overflow-hidden cursor-pointer"
+          onClick={() => onToggle(a.id)}
+          style={{
+            aspectRatio: '1',
+            borderRadius: isMobile ? 4 : 6,
+            border: `2.5px solid ${picked.has(a.id) ? 'var(--mv-accent)' : 'transparent'}`,
+            transition: 'border-color 0.15s, box-shadow 0.15s',
+            boxShadow: picked.has(a.id) ? '0 0 0 3px var(--mv-accent-pale)' : 'none',
+          }}
+        >
+          <img
+            src={thumbUrl(a.id)}
+            alt=""
+            className="w-full h-full object-cover block transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          {a.type === 'VIDEO' && (
+            <div className="absolute bottom-1.5 left-1.5 text-xs text-white bg-black/60 rounded-sm px-1 leading-snug">▶</div>
+          )}
+          {!picked.has(a.id) && (
+            <div className="absolute inset-0 bg-ink/0 group-hover:bg-ink/10 transition-colors duration-200" />
+          )}
+          {picked.has(a.id) && (
+            <div className="absolute inset-0 bg-accent/15 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center shadow-sm">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5">
+                  <polyline points="2,6 5,9 10,3"/>
+                </svg>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SidebarItem({ album, active, count, onClick }) {
+  return (
+    <button
+      className="w-full flex items-center justify-between gap-2 text-left transition-all"
+      style={{
+        padding: '7px 8px 7px 9px',
+        borderRadius: 5,
+        borderLeft: `2px solid ${active ? 'var(--mv-accent)' : 'transparent'}`,
+        background: active ? 'var(--mv-accent-pale)' : 'transparent',
+        color: active ? 'var(--ink)' : 'var(--ink-soft)',
+      }}
+      onClick={onClick}
+    >
+      <span className="truncate text-xs font-light">{album.albumName}</span>
+      {count != null && count !== '' && (
+        <span className="text-2xs font-light shrink-0" style={{ color: 'var(--ink-faint)' }}>{count}</span>
+      )}
+    </button>
+  );
+}
+
 export default function AssetPicker({ onSelect, onClose, multiple = false, initialSelected = [], typeFilter, storyId }) {
   const [albums, setAlbums] = useState([]);
   const [sharedOnly, setSharedOnly] = useState(false);
@@ -16,12 +81,19 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [albumError, setAlbumError] = useState('');
   const [contribCount, setContribCount] = useState(0);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     setLoadingAlbums(true);
     setAlbumError('');
-    const params = sharedOnly ? '?shared=true' : '';
-    api.get(`/api/immich/albums${params}`)
+    api.get(`/api/immich/albums${sharedOnly ? '?shared=true' : ''}`)
       .then((r) => setAlbums(r.data))
       .catch(() => setAlbumError('Sem acesso a álbuns. Verifica a tua API key Immich.'))
       .finally(() => setLoadingAlbums(false));
@@ -39,8 +111,7 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
     setLoadingAssets(true);
     try {
       if (album.id === '__none__') {
-        const params = typeFilter ? `?type=${typeFilter}` : '';
-        const r = await api.get(`/api/immich/assets${params}`);
+        const r = await api.get(`/api/immich/assets${typeFilter ? `?type=${typeFilter}` : ''}`);
         setAssets(r.data);
       } else if (album.id === '__contributions__') {
         const r = await api.get(`/api/stories/${storyId}/contributions/assets`);
@@ -72,231 +143,249 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
     onClose();
   }
 
-  const visibleAssets = typeFilter
-    ? assets.filter((a) => a.type === typeFilter)
-    : assets;
+  const visibleAssets = typeFilter ? assets.filter((a) => a.type === typeFilter) : assets;
+  const filteredAlbums = albums.filter((a) => a.albumName.toLowerCase().includes(albumSearch.toLowerCase()));
 
-  const filteredAlbums = albums.filter((a) =>
-    a.albumName.toLowerCase().includes(albumSearch.toLowerCase())
+  /* ── Footer (shared between layouts) ── */
+  const footer = (
+    <div className="flex items-center justify-between shrink-0 border-t border-border bg-paper-warm" style={{ padding: '11px 20px' }}>
+      {picked.size > 0 ? (
+        <span className="text-sm font-light text-ink-soft">
+          <span className="font-normal">{picked.size}</span> seleccionada{picked.size !== 1 ? 's' : ''}
+        </span>
+      ) : (
+        <span className="text-xs font-light text-ink-faint">Nenhuma seleccionada</span>
+      )}
+      <div className="flex gap-2">
+        <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+        <button className="btn btn-primary" onClick={confirm} disabled={picked.size === 0}>
+          {multiple ? `Confirmar${picked.size > 0 ? ` (${picked.size})` : ''}` : 'Confirmar'}
+        </button>
+      </div>
+    </div>
   );
 
-  return (
-    <div style={s.overlay} onClick={onClose}>
-      <div className="ap-modal" onClick={(e) => e.stopPropagation()}>
+  /* ── Mobile layout ── */
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-[300] flex flex-col" style={{ background: 'var(--paper)' }}>
 
-        {/* Header */}
-        <div style={s.header}>
-          <h3 style={s.title}>{multiple ? 'Seleccionar fotos' : 'Seleccionar foto'}</h3>
-          <button className="ap-close-btn" style={s.closeBtn} onClick={onClose} aria-label="Fechar">✕</button>
+        <div className="flex items-center justify-between shrink-0 border-b border-border" style={{ padding: '12px 16px' }}>
+          <h3 className="font-display text-xl italic font-light text-ink">
+            {multiple ? 'Seleccionar fotos' : 'Seleccionar foto'}
+          </h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
 
-        {/* Body */}
-        <div className="ap-body">
+        <div className="shrink-0 border-b border-border" style={{ paddingTop: 10 }}>
+          <div className="flex items-center gap-2" style={{ padding: '0 12px 8px' }}>
+            <input
+              className="field-input flex-1"
+              style={{ padding: '7px 10px', fontSize: 13 }}
+              placeholder="Pesquisar álbuns…"
+              value={albumSearch}
+              onChange={(e) => setAlbumSearch(e.target.value)}
+            />
+            <label className="flex items-center gap-1.5 shrink-0 text-xs font-light text-ink-muted cursor-pointer select-none">
+              <input type="checkbox" checked={sharedOnly} onChange={(e) => setSharedOnly(e.target.checked)} />
+              Partilhados
+            </label>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto" style={{ padding: '0 12px 10px', scrollbarWidth: 'none' }}>
+            {loadingAlbums && <span className="text-xs text-ink-faint self-center">A carregar…</span>}
+            {!loadingAlbums && storyId && (
+              <AlbumChip album={CONTRIB_ALBUM} active={selectedAlbum?.id === '__contributions__'} count={contribCount || null} onSelect={() => openAlbum(CONTRIB_ALBUM)} />
+            )}
+            {!loadingAlbums && (
+              <AlbumChip album={NONE_ALBUM} active={selectedAlbum?.id === '__none__'} count={null} onSelect={() => openAlbum(NONE_ALBUM)} />
+            )}
+            {!loadingAlbums && filteredAlbums.map((a) => (
+              <AlbumChip key={a.id} album={a} active={selectedAlbum?.id === a.id} count={a.assetCount || null} onSelect={() => openAlbum(a)} />
+            ))}
+            {albumError && <span className="text-xs text-danger shrink-0 self-center">{albumError}</span>}
+          </div>
+        </div>
 
-          {/* Album sidebar */}
-          <aside className="ap-sidebar">
+        <main className="flex-1 overflow-y-auto" style={{ padding: 10 }}>
+          {!selectedAlbum && (
+            <p className="text-sm font-light text-ink-faint text-center mt-12">Selecciona um álbum acima</p>
+          )}
+          {loadingAssets && (
+            <div className="flex items-center justify-center h-40"><div className="spinner" /></div>
+          )}
+          {!loadingAssets && selectedAlbum && visibleAssets.length === 0 && (
+            <p className="text-sm font-light text-ink-faint text-center mt-12">Sem fotos neste álbum</p>
+          )}
+          {!loadingAssets && selectedAlbum && visibleAssets.length > 0 && (
+            <AssetGrid assets={visibleAssets} picked={picked} onToggle={toggle} isMobile />
+          )}
+        </main>
 
-            {/* Search — hidden on mobile via CSS */}
-            <div style={s.searchWrap} className="ap-search-wrap">
+        {footer}
+      </div>
+    );
+  }
+
+  /* ── Desktop layout ── */
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center"
+      style={{ background: 'rgba(26,24,20,0.5)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper border border-border rounded-lg shadow-lg flex flex-col overflow-hidden"
+        style={{ width: '88vw', maxWidth: 960, height: '84vh', boxShadow: '0 24px 64px rgba(26,24,20,0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between shrink-0 border-b border-border" style={{ padding: '16px 20px 14px' }}>
+          <div>
+            <h3 className="font-display text-2xl italic font-light text-ink leading-none">
+              {multiple ? 'Seleccionar fotos' : 'Seleccionar foto'}
+            </h3>
+            {selectedAlbum && !loadingAssets && (
+              <p className="text-xs font-light text-ink-faint mt-1.5">
+                {selectedAlbum.albumName} &middot; {visibleAssets.length} foto{visibleAssets.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          <button className="btn btn-ghost btn-sm text-ink-faint mt-0.5" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* Sidebar */}
+          <aside className="border-r border-border flex flex-col shrink-0" style={{ width: 200, background: 'var(--paper-warm)' }}>
+
+            {/* Search */}
+            <div className="border-b border-border" style={{ padding: '8px 8px' }}>
               <input
-                className="field"
-                style={s.searchInput}
+                className="field-input"
+                style={{ padding: '6px 10px', fontSize: 12 }}
                 placeholder="Pesquisar álbuns…"
                 value={albumSearch}
                 onChange={(e) => setAlbumSearch(e.target.value)}
               />
             </div>
 
-            {/* Toggle todos / partilhados */}
-            <div style={s.toggleRow} className="ap-toggle-row">
-              <button
-                style={{ ...s.toggleBtn, ...(sharedOnly ? {} : s.toggleBtnActive) }}
-                onClick={() => setSharedOnly(false)}
-              >Todos</button>
-              <button
-                style={{ ...s.toggleBtn, ...(sharedOnly ? s.toggleBtnActive : {}) }}
-                onClick={() => setSharedOnly(true)}
-              >Partilhados</button>
+            {/* Todos / Partilhados toggle */}
+            <div className="flex border-b border-border shrink-0">
+              {[['Todos', false], ['Partilhados', true]].map(([label, val]) => (
+                <button
+                  key={label}
+                  className="flex-1 text-xs font-light bg-transparent border-none cursor-pointer transition-colors"
+                  style={{
+                    padding: '7px 4px',
+                    color: sharedOnly === val ? 'var(--ink)' : 'var(--ink-muted)',
+                    fontWeight: sharedOnly === val ? 500 : 300,
+                    borderBottom: `1.5px solid ${sharedOnly === val ? 'var(--mv-accent)' : 'transparent'}`,
+                    marginBottom: -1,
+                  }}
+                  onClick={() => setSharedOnly(val)}
+                >{label}</button>
+              ))}
             </div>
 
-            {/* Contributions — shown only when storyId provided and there are approved ones */}
-            {storyId && (
-              <button
-                className={`ap-album-btn${selectedAlbum?.id === '__contributions__' ? ' active' : ''}`}
-                style={{ ...s.albumBtn, ...(selectedAlbum?.id === '__contributions__' ? s.albumBtnActive : {}) }}
-                onClick={() => openAlbum(CONTRIB_ALBUM)}
-              >
-                <span style={s.albumName}>📥 Contribuições</span>
-                {contribCount > 0 && <span style={s.albumCount}>{contribCount}</span>}
-              </button>
-            )}
+            {/* Album list */}
+            <div className="flex-1 overflow-y-auto flex flex-col" style={{ padding: '6px 6px' }}>
 
-            {/* Fora de álbuns */}
-            <button
-              className={`ap-album-btn${selectedAlbum?.id === '__none__' ? ' active' : ''}`}
-              style={{ ...s.albumBtn, ...(selectedAlbum?.id === '__none__' ? s.albumBtnActive : {}) }}
-              onClick={() => openAlbum(NONE_ALBUM)}
-            >
-              <span style={s.albumName}>📁 Fora de álbuns</span>
-            </button>
+              {storyId && (
+                <SidebarItem
+                  album={CONTRIB_ALBUM}
+                  active={selectedAlbum?.id === '__contributions__'}
+                  count={contribCount || null}
+                  onClick={() => openAlbum(CONTRIB_ALBUM)}
+                />
+              )}
+              <SidebarItem
+                album={NONE_ALBUM}
+                active={selectedAlbum?.id === '__none__'}
+                count={null}
+                onClick={() => openAlbum(NONE_ALBUM)}
+              />
 
-            <p style={s.sectionLabel} className="ap-section-label">Álbuns</p>
+              <p className="text-2xs font-medium uppercase tracking-widest text-ink-faint" style={{ padding: '10px 9px 4px' }}>Álbuns</p>
 
-            {loadingAlbums && (
-              <div style={s.loadingRow}><div className="spinner spinner-sm" /><span style={s.hint}>A carregar…</span></div>
-            )}
-            {albumError && <p style={s.error}>{albumError}</p>}
+              {loadingAlbums && (
+                <div className="flex items-center gap-2 text-ink-faint text-xs font-light" style={{ padding: '6px 9px' }}>
+                  <div className="spinner spinner-sm" />
+                  <span>A carregar…</span>
+                </div>
+              )}
+              {albumError && <p className="text-xs text-danger" style={{ padding: '4px 9px' }}>{albumError}</p>}
 
-            {filteredAlbums.map((a) => (
-              <button
-                key={a.id}
-                className={`ap-album-btn${selectedAlbum?.id === a.id ? ' active' : ''}`}
-                style={{ ...s.albumBtn, ...(selectedAlbum?.id === a.id ? s.albumBtnActive : {}) }}
-                onClick={() => openAlbum(a)}
-              >
-                <span style={s.albumName}>{a.albumName}</span>
-                <span style={s.albumCount}>{a.assetCount ?? ''}</span>
-              </button>
-            ))}
+              {filteredAlbums.map((a) => (
+                <SidebarItem
+                  key={a.id}
+                  album={a}
+                  active={selectedAlbum?.id === a.id}
+                  count={a.assetCount ?? ''}
+                  onClick={() => openAlbum(a)}
+                />
+              ))}
 
-            {!loadingAlbums && filteredAlbums.length === 0 && !albumError && albumSearch && (
-              <p style={s.hint}>Sem resultados</p>
-            )}
+              {!loadingAlbums && filteredAlbums.length === 0 && !albumError && albumSearch && (
+                <p className="text-xs font-light text-ink-faint text-center" style={{ marginTop: 16 }}>Sem resultados</p>
+              )}
+            </div>
           </aside>
 
           {/* Asset grid */}
-          <main style={s.assetArea}>
+          <main className="flex-1 overflow-y-auto" style={{ padding: 12, background: 'var(--paper)' }}>
+
             {!selectedAlbum && !loadingAlbums && (
-              <p style={{ ...s.hint, marginTop: 32 }}>Selecciona um álbum à esquerda</p>
+              <div className="flex flex-col items-center justify-center h-full text-center" style={{ paddingBottom: 40 }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--border-strong)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 14, opacity: 0.6 }}>
+                  <rect x="3" y="3" width="18" height="18" rx="3"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21,15 16,10 5,21"/>
+                </svg>
+                <p className="font-display text-xl italic font-light text-ink-faint">Selecciona um álbum</p>
+                <p className="text-xs font-light text-ink-faint mt-1">à esquerda para ver as fotos</p>
+              </div>
             )}
+
             {loadingAssets && (
-              <div style={s.loadingCenter}><div className="spinner" /></div>
+              <div className="flex items-center justify-center h-full">
+                <div className="spinner" />
+              </div>
             )}
-            {!loadingAssets && selectedAlbum && (
-              <>
-                {visibleAssets.length === 0 && <p style={s.hint}>Sem fotos neste álbum</p>}
-                <div style={s.grid} className="ap-grid">
-                  {visibleAssets.map((a) => (
-                    <div
-                      key={a.id}
-                      style={{ ...s.thumb, ...(picked.has(a.id) ? s.thumbSelected : {}) }}
-                      onClick={() => toggle(a.id)}
-                    >
-                      <img src={thumbUrl(a.id)} alt="" style={s.thumbImg} loading="lazy" />
-                      {a.type === 'VIDEO' && <div style={s.videoIcon}>▶</div>}
-                      {picked.has(a.id) && <div style={s.check}>✓</div>}
-                    </div>
-                  ))}
-                </div>
-              </>
+
+            {!loadingAssets && selectedAlbum && visibleAssets.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center" style={{ paddingBottom: 40 }}>
+                <p className="font-display text-xl italic font-light text-ink-faint">Sem fotos neste álbum</p>
+              </div>
+            )}
+
+            {!loadingAssets && selectedAlbum && visibleAssets.length > 0 && (
+              <AssetGrid assets={visibleAssets} picked={picked} onToggle={toggle} />
             )}
           </main>
         </div>
 
-        {/* Footer */}
-        <div className="ap-footer" style={s.footer}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" onClick={confirm} disabled={picked.size === 0}>
-            {multiple ? `Confirmar (${picked.size})` : 'Confirmar'}
-          </button>
-        </div>
+        {footer}
       </div>
     </div>
   );
 }
 
-const s = {
-  overlay: {
-    position: 'fixed', inset: 0,
-    background: 'rgba(26,24,20,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 300, backdropFilter: 'blur(3px)',
-  },
-  header: {
-    padding: '14px 20px',
-    borderBottom: '0.5px solid var(--border)',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    flexShrink: 0,
-  },
-  title: {
-    fontFamily: 'var(--font-display)',
-    fontSize: 20, fontWeight: 500, color: 'var(--ink)',
-  },
-  closeBtn: {
-    background: 'none', border: 'none',
-    fontSize: 16, cursor: 'pointer',
-    color: 'var(--ink-faint)',
-    width: 36, height: 36,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 6, flexShrink: 0,
-    transition: 'background 0.12s, color 0.12s',
-  },
-  searchWrap: { marginBottom: 8 },
-  searchInput: { fontSize: 12, padding: '6px 10px' },
-  toggleRow: { display: 'flex', marginBottom: 8, borderBottom: '0.5px solid var(--border)' },
-  toggleBtn: {
-    flex: 1, padding: '6px 0', fontSize: 11, fontWeight: 400,
-    border: 'none',
-    borderBottom: '1.5px solid transparent',
-    background: 'none', cursor: 'pointer',
-    color: 'var(--ink-muted)', transition: 'color 0.15s',
-    marginBottom: -0.5,
-  },
-  toggleBtnActive: {
-    color: 'var(--ink)',
-    borderBottomColor: 'var(--mv-accent)',
-    fontWeight: 500,
-  },
-  sectionLabel: {
-    fontSize: 9, color: 'var(--ink-faint)',
-    textTransform: 'uppercase', letterSpacing: '0.08em',
-    marginBottom: 4, marginTop: 8, padding: '0 6px', fontWeight: 500,
-  },
-  albumBtn: {
-    width: '100%', padding: '9px 10px',
-    background: 'none', border: 'none',
-    textAlign: 'left', borderRadius: 'var(--radius-sm)',
-    fontSize: 12, fontWeight: 300, cursor: 'pointer',
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4,
-    color: 'var(--ink-soft)',
-    minHeight: 38,
-  },
-  albumBtnActive: { background: 'var(--mv-accent-pale)', color: 'var(--ink)' },
-  albumName: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  albumCount: { fontSize: 11, fontWeight: 300, color: 'var(--ink-faint)', flexShrink: 0 },
-  assetArea: { flex: 1, overflowY: 'auto', padding: 12 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(86px, 1fr))', gap: 6 },
-  thumb: {
-    position: 'relative', aspectRatio: '1/1',
-    overflow: 'hidden', borderRadius: 'var(--radius-xs)',
-    cursor: 'pointer', border: '2px solid transparent',
-    transition: 'border-color 0.12s',
-  },
-  thumbSelected: { border: '2px solid var(--mv-accent)' },
-  thumbImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  videoIcon: {
-    position: 'absolute', bottom: 4, left: 4,
-    fontSize: 11, color: '#fff',
-    background: 'rgba(0,0,0,.55)', borderRadius: 3,
-    padding: '1px 4px', lineHeight: 1.4,
-  },
-  check: {
-    position: 'absolute', top: 4, right: 4,
-    width: 20, height: 20,
-    background: 'var(--mv-accent)', color: '#fff',
-    borderRadius: '50%', display: 'flex',
-    alignItems: 'center', justifyContent: 'center',
-    fontSize: 10, fontWeight: 500,
-  },
-  hint: { color: 'var(--ink-faint)', fontSize: 13, fontWeight: 300, textAlign: 'center', marginTop: 32, margin: 0 },
-  error: { color: 'var(--danger)', fontSize: 12, padding: '0 6px' },
-  loadingRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', color: 'var(--ink-faint)', fontSize: 12, fontWeight: 300 },
-  loadingCenter: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32 },
-  footer: {
-    padding: '12px 20px',
-    borderTop: '0.5px solid var(--border)',
-    background: 'var(--paper-warm)',
-    display: 'flex', gap: 8, justifyContent: 'flex-end',
-    flexShrink: 0,
-  },
-};
+function AlbumChip({ album, active, count, onSelect }) {
+  return (
+    <button
+      onClick={onSelect}
+      className="shrink-0 flex items-center gap-1 text-xs font-light transition-all"
+      style={{
+        padding: '5px 10px',
+        borderRadius: 99,
+        border: `1.5px solid ${active ? 'var(--mv-accent)' : 'var(--border)'}`,
+        background: active ? 'var(--mv-accent)' : 'var(--paper-warm)',
+        color: active ? '#fff' : 'var(--ink-soft)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {album.albumName}
+      {count > 0 && <span style={{ opacity: 0.65, marginLeft: 2 }}>{count}</span>}
+    </button>
+  );
+}

@@ -9,6 +9,14 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const [sharedOnly, setSharedOnly] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const h = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -44,129 +52,108 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
     }
   }
 
+  const filtered = albums.filter((a) => a.albumName.toLowerCase().includes(albumSearch.toLowerCase()));
+
+  const overlayStyle = isMobile
+    ? {}
+    : { background: 'rgba(26,24,20,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+  const modalStyle = isMobile
+    ? { position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--paper)' }
+    : {
+        width: 480,
+        maxWidth: 'calc(100vw - 2rem)',
+        maxHeight: '82vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--paper)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(26,24,20,0.2)',
+      };
+
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={s.header}>
-          <h3 style={s.title}>Importar álbum Immich</h3>
-          <button style={s.closeBtn} onClick={onClose}>✕</button>
+    <div
+      className="fixed inset-0 z-[300]"
+      style={overlayStyle}
+      onClick={isMobile ? undefined : onClose}
+    >
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between shrink-0 border-b border-border" style={{ padding: '14px 20px' }}>
+          <h3 className="font-display text-xl italic font-light text-ink">Importar álbum Immich</h3>
+          <button className="btn btn-ghost btn-sm text-ink-faint" onClick={onClose}>✕</button>
         </div>
 
-        <div style={s.body}>
-          <p style={s.desc}>
-            Selecciona um ou mais álbuns. A story é montada automaticamente: heros, grids dimensionados pela cadência das fotos, divisores por mês e por local. As fotos favoritas ganham destaque automático.
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto flex flex-col" style={{ padding: '16px 20px', gap: 14 }}>
+          <p className="text-sm font-light text-ink-muted leading-relaxed">
+            Selecciona um ou mais álbuns. A story é montada automaticamente: heros, grids dimensionados pela cadência das fotos, divisores por mês e por local.
           </p>
 
-          <label style={s.filterRow}>
-            <input type="checkbox" checked={sharedOnly} onChange={(e) => setSharedOnly(e.target.checked)} />
-            Só álbuns partilhados
-          </label>
+          <div className="flex items-center gap-4">
+            <input
+              className="field-input flex-1"
+              placeholder="Pesquisar álbuns…"
+              value={albumSearch}
+              onChange={(e) => setAlbumSearch(e.target.value)}
+            />
+            <label className="flex items-center gap-2 text-sm font-light text-ink-muted cursor-pointer select-none shrink-0">
+              <input type="checkbox" checked={sharedOnly} onChange={(e) => setSharedOnly(e.target.checked)} />
+              Só partilhados
+            </label>
+          </div>
 
-          <input
-            className="field"
-            style={s.searchInput}
-            placeholder="Pesquisar álbuns…"
-            value={albumSearch}
-            onChange={(e) => setAlbumSearch(e.target.value)}
-          />
+          {loading && <p className="text-sm font-light text-ink-faint text-center py-5">A carregar álbuns...</p>}
+          {error && <p className="text-sm font-light text-danger px-3 py-2 bg-danger/6 border border-danger/20 rounded-sm">{error}</p>}
 
-          {loading && <p style={s.hint}>A carregar álbuns...</p>}
-          {error && <p style={s.error}>{error}</p>}
-
-          <div style={s.list}>
-            {albums.filter((a) => a.albumName.toLowerCase().includes(albumSearch.toLowerCase())).map((a) => (
-              <label key={a.id} style={s.item}>
+          <div className="flex flex-col" style={{ gap: 1 }}>
+            {filtered.map((a) => (
+              <label
+                key={a.id}
+                className="flex items-center gap-3 rounded-sm cursor-pointer transition-colors hover:bg-paper-warm select-none"
+                style={{ padding: isMobile ? '10px 10px' : '8px 10px' }}
+              >
                 <input
                   type="checkbox"
                   checked={selected.has(a.id)}
                   onChange={() => toggle(a.id)}
-                  style={{ flexShrink: 0 }}
+                  className="shrink-0"
                 />
-                <span style={s.albumName}>{a.albumName}</span>
-                <span style={s.albumCount}>{a.assetCount ?? 0} fotos</span>
+                <span className="flex-1 text-sm font-light text-ink-soft">{a.albumName}</span>
+                <span className="text-xs font-light text-ink-faint shrink-0">{a.assetCount ?? 0} fotos</span>
               </label>
             ))}
-            {!loading && albums.length === 0 && !error && (
-              <p style={s.hint}>Sem álbuns disponíveis</p>
+            {!loading && filtered.length === 0 && !error && (
+              <div className="text-center py-8">
+                <p className="font-display text-lg italic font-light text-ink-faint">
+                  {albumSearch ? 'Sem resultados' : 'Sem álbuns disponíveis'}
+                </p>
+              </div>
             )}
           </div>
         </div>
 
-        <div style={s.footer}>
-          <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Cancelar</button>
-          <button className="btn btn-primary" onClick={importAlbums} disabled={selected.size === 0 || importing}>
-            {importing
-              ? 'A importar…'
-              : `Importar${selected.size > 0 ? ` (${selected.size} álbum${selected.size > 1 ? 'ns' : ''})` : ''}`
-            }
-          </button>
+        {/* Footer */}
+        <div className="flex items-center justify-between shrink-0 border-t border-border bg-paper-warm" style={{ padding: '10px 20px' }}>
+          {selected.size > 0 ? (
+            <span className="text-sm font-light text-ink-soft">
+              <span className="font-normal">{selected.size}</span> álbum{selected.size !== 1 ? 'ns' : ''} seleccionado{selected.size !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="text-xs font-light text-ink-faint">Nenhum álbum seleccionado</span>
+          )}
+          <div className="flex gap-2">
+            <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Cancelar</button>
+            <button className="btn btn-primary" onClick={importAlbums} disabled={selected.size === 0 || importing}>
+              {importing ? 'A importar…' : `Importar${selected.size > 0 ? ` (${selected.size})` : ''}`}
+            </button>
+          </div>
         </div>
+
       </div>
     </div>
   );
 }
-
-const s = {
-  overlay: {
-    position: 'fixed', inset: 0,
-    background: 'rgba(26,24,20,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 300, backdropFilter: 'blur(3px)',
-  },
-  modal: {
-    background: 'var(--paper)',
-    borderRadius: 'var(--radius-lg)',
-    width: 480, maxWidth: 'calc(100vw - 2rem)', maxHeight: '72vh',
-    display: 'flex', flexDirection: 'column',
-    boxShadow: 'var(--shadow-lg)',
-    border: '0.5px solid var(--border)',
-    overflow: 'hidden',
-  },
-  header: {
-    padding: '14px 20px',
-    borderBottom: '0.5px solid var(--border)',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    flexShrink: 0,
-  },
-  title: { fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: 'var(--ink)' },
-  closeBtn: {
-    background: 'none', border: 'none',
-    fontSize: 16, cursor: 'pointer',
-    color: 'var(--ink-faint)',
-    width: 28, height: 28,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 'var(--radius-sm)',
-  },
-  body: { padding: '16px 20px', flex: 1, overflowY: 'auto' },
-  desc: { fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', marginBottom: 14, lineHeight: 1.6 },
-  searchInput: { fontSize: 12, padding: '6px 10px', marginBottom: 14 },
-  hint: { color: 'var(--ink-faint)', fontSize: 13, fontWeight: 300, textAlign: 'center', padding: '20px 0' },
-  error: {
-    color: 'var(--danger)', fontSize: 13, fontWeight: 300, marginBottom: 8,
-    padding: '8px 12px',
-    background: 'rgba(176,80,80,0.06)',
-    border: '0.5px solid rgba(176,80,80,0.2)',
-    borderRadius: 'var(--radius-sm)',
-  },
-  list: { display: 'flex', flexDirection: 'column', gap: 1 },
-  item: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '9px 10px', borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', fontSize: 13,
-    transition: 'background 0.1s',
-  },
-  albumName: { flex: 1, fontWeight: 400, fontSize: 13, color: 'var(--ink-soft)' },
-  albumCount: { fontSize: 12, fontWeight: 300, color: 'var(--ink-faint)' },
-  filterRow: {
-    display: 'flex', alignItems: 'center', gap: 7,
-    fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)',
-    marginBottom: 14, cursor: 'pointer',
-  },
-  footer: {
-    padding: '12px 20px',
-    borderTop: '0.5px solid var(--border)',
-    background: 'var(--paper-warm)',
-    display: 'flex', gap: 8, justifyContent: 'flex-end',
-    flexShrink: 0,
-  },
-};

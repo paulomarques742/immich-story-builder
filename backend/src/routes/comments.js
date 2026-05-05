@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -30,6 +30,24 @@ router.delete('/comments/:cid', requireAuth, (req, res) => {
 
   db.prepare('DELETE FROM comments WHERE id = ?').run(comment.id);
   res.status(204).end();
+});
+
+// GET /api/admin/comments  (admin only — all comments across all stories)
+router.get('/admin/comments', requireAuth, requireAdmin, (req, res) => {
+  const { story_id } = req.query;
+  let query = `
+    SELECT c.id, c.story_id, s.title AS story_title, s.slug AS story_slug,
+           c.asset_id, c.author_name, c.body, c.approved, c.created_at
+    FROM comments c
+    JOIN stories s ON s.id = c.story_id
+  `;
+  const params = [];
+  if (story_id) {
+    query += ' WHERE c.story_id = ?';
+    params.push(story_id);
+  }
+  query += ' ORDER BY c.created_at DESC';
+  res.json(db.prepare(query).all(...params));
 });
 
 module.exports = router;

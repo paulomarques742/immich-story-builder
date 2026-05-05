@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS contributions (
   uploaded_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
+  type        TEXT NOT NULL,
+  payload     TEXT NOT NULL,
+  read        INTEGER DEFAULT 0,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS asset_ai_scores (
   asset_id          TEXT PRIMARY KEY,
   score             REAL,

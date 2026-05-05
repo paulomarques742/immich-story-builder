@@ -21,8 +21,25 @@ const TONE_LABELS = {
   lírico: '✨',
 };
 
+function ModalHeader({ title, onClose, onBack, backLabel }) {
+  return (
+    <div className="flex items-center gap-2 justify-between shrink-0 border-b border-border" style={{ padding: '14px 20px' }}>
+      {onBack && (
+        <button
+          className="text-xs font-light text-ink-faint bg-transparent border-none cursor-pointer shrink-0 transition-colors hover:text-ink-muted"
+          style={{ paddingRight: 8 }}
+          onClick={onBack}
+        >
+          ← {backLabel}
+        </button>
+      )}
+      <h3 className="font-display text-xl italic font-light text-ink flex-1">{title}</h3>
+      <button className="btn btn-ghost btn-sm text-ink-faint" onClick={onClose}>✕</button>
+    </div>
+  );
+}
+
 export default function AiLayoutButton({ aiLayout, disabled, isMobile = false }) {
-  // screen: 'albums' | 'suggestions' | 'progress'
   const [screen, setScreen] = useState('albums');
   const [open, setOpen] = useState(false);
   const [albums, setAlbums] = useState([]);
@@ -34,6 +51,14 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
   const [albumError, setAlbumError] = useState('');
   const [chosenIdx, setChosenIdx] = useState(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [isSmall, setIsSmall] = useState(() => window.innerWidth < 480);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 479px)');
+    const h = (e) => setIsSmall(e.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -45,14 +70,9 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
       .finally(() => setLoadingAlbums(false));
   }, [open, sharedOnly]);
 
-  // When suggestions arrive, switch to suggestions screen
   useEffect(() => {
-    if (aiLayout.status === 'suggestions_ready' && screen !== 'suggestions') {
-      setScreen('suggestions');
-    }
-    if (aiLayout.status === 'applying' || aiLayout.status === 'processing') {
-      if (screen !== 'progress') setScreen('progress');
-    }
+    if (aiLayout.status === 'suggestions_ready' && screen !== 'suggestions') setScreen('suggestions');
+    if ((aiLayout.status === 'applying' || aiLayout.status === 'processing') && screen !== 'progress') setScreen('progress');
   }, [aiLayout.status, screen]);
 
   function toggle(id) {
@@ -83,87 +103,108 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
     setOpen(false);
     setScreen('albums');
     setChosenIdx(null);
-    if (aiLayout.status === 'done' || aiLayout.status === 'error' || aiLayout.status === 'suggestions_ready') {
-      aiLayout.reset();
-    }
+    if (['done', 'error', 'suggestions_ready'].includes(aiLayout.status)) aiLayout.reset();
   }
 
   if (unavailable) {
     return (
       <button className="btn btn-secondary" disabled title="Adiciona GEMINI_API_KEY ao .env para activar AI Layout" style={{ opacity: 0.6 }}>
         ✨ AI Layout
-        <span style={s.badge}>Config</span>
+        <span className="inline-block ml-1.5 text-2xs font-medium px-1.5 py-0.5 rounded-[3px] bg-accent-pale text-accent align-middle tracking-wide">Config</span>
       </button>
     );
   }
 
+  const overlayStyle = isSmall
+    ? {}
+    : { background: 'rgba(26,24,20,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+  const modalStyle = isSmall
+    ? { position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--paper)' }
+    : {
+        width: 520,
+        maxWidth: 'calc(100vw - 2rem)',
+        maxHeight: '84vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--paper)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(26,24,20,0.2)',
+      };
+
   return (
     <>
-      <button
-        className="btn btn-secondary"
-        onClick={() => setOpen(true)}
-        disabled={disabled}
-        title="Gerar story automaticamente com IA"
-      >
+      <button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)} disabled={disabled} title="Gerar story automaticamente com IA">
         {isMobile ? '✨' : '✨ AI Layout'}
       </button>
 
       {open && (
-        <div style={s.overlay} onClick={handleClose}>
-          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[300]"
+          style={overlayStyle}
+          onClick={isSmall ? undefined : handleClose}
+        >
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
 
             {/* ── SCREEN 1: Album selection ── */}
             {screen === 'albums' && (
               <>
-                <div style={s.header}>
-                  <h3 style={s.title}>✨ AI Layout</h3>
-                  <button style={s.closeBtn} onClick={handleClose}>✕</button>
-                </div>
-                <div style={s.body}>
-                  <p style={s.desc}>
+                <ModalHeader title="✨ AI Layout" onClose={handleClose} />
+
+                <div className="flex-1 overflow-y-auto" style={{ padding: '16px 20px' }}>
+                  <p className="text-sm font-light text-ink-muted mb-4 leading-relaxed">
                     Selecciona álbuns. A IA analisa as fotos e sugere 3 formas de organizar a tua história.
                   </p>
-                  <label style={s.filterRow}>
+
+                  <label className="flex items-center gap-2 text-sm font-light text-ink-muted mb-4 cursor-pointer select-none">
                     <input type="checkbox" checked={sharedOnly} onChange={(e) => setSharedOnly(e.target.checked)} />
                     Só álbuns partilhados
                   </label>
-                  {loadingAlbums && <p style={s.hint}>A carregar álbuns...</p>}
-                  {albumError && <p style={s.error}>{albumError}</p>}
-                  <div style={s.list}>
+
+                  {loadingAlbums && <p className="text-sm font-light text-ink-faint text-center py-5">A carregar álbuns...</p>}
+                  {albumError && (
+                    <p className="text-sm font-light text-danger mb-3 px-3 py-2 bg-danger/6 border border-danger/20 rounded-sm">{albumError}</p>
+                  )}
+
+                  <div className="flex flex-col" style={{ gap: 1, marginBottom: 16 }}>
                     {albums.map((a) => (
-                      <label key={a.id} style={s.item}>
-                        <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} style={{ flexShrink: 0 }} />
-                        <span style={s.albumName}>{a.albumName}</span>
-                        <span style={s.albumCount}>{a.assetCount ?? 0} fotos</span>
+                      <label
+                        key={a.id}
+                        className="flex items-center gap-3 rounded-sm cursor-pointer transition-colors hover:bg-paper-warm select-none"
+                        style={{ padding: '9px 10px' }}
+                      >
+                        <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} className="shrink-0" />
+                        <span className="flex-1 text-sm font-light text-ink-soft">{a.albumName}</span>
+                        <span className="text-xs font-light text-ink-faint shrink-0">{a.assetCount ?? 0}</span>
                       </label>
                     ))}
                     {!loadingAlbums && albums.length === 0 && !albumError && (
-                      <p style={s.hint}>Sem álbuns disponíveis</p>
+                      <p className="text-sm font-light text-ink-faint text-center py-5">Sem álbuns disponíveis</p>
                     )}
                   </div>
-                  <div style={s.options}>
-                    <label style={s.optionRow}>
-                      <span style={s.optionLabel}>Idioma do texto</span>
-                      <select value={language} onChange={(e) => setLanguage(e.target.value)} style={s.select}>
+
+                  <div className="flex flex-col gap-3 border-t border-border" style={{ paddingTop: 14 }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-light text-ink-muted">Idioma do texto</span>
+                      <select className="field-select" style={{ width: 'auto' }} value={language} onChange={(e) => setLanguage(e.target.value)}>
                         <option value="pt">Português</option>
                         <option value="en">English</option>
                         <option value="es">Español</option>
                       </select>
-                    </label>
-                    <label style={s.checkRow}>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-light text-ink-muted select-none">
                       <input type="checkbox" checked={replaceExisting} onChange={(e) => setReplaceExisting(e.target.checked)} />
-                      <span style={{ fontSize: 13 }}>Substituir blocos existentes</span>
+                      Substituir blocos existentes
                     </label>
                   </div>
                 </div>
-                <div style={s.footer}>
+
+                <div className="flex gap-2 justify-end shrink-0 border-t border-border bg-paper-warm" style={{ padding: '10px 20px' }}>
                   <button className="btn btn-secondary" onClick={handleClose}>Cancelar</button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAnalyse}
-                    disabled={selected.size === 0}
-                  >
-                    {`Analisar fotos${selected.size > 0 ? ` (${selected.size} álbum${selected.size > 1 ? 'ns' : ''})` : ''}`}
+                  <button className="btn btn-primary" onClick={handleAnalyse} disabled={selected.size === 0}>
+                    {`Analisar${selected.size > 0 ? ` (${selected.size} álbum${selected.size > 1 ? 'ns' : ''})` : ' fotos'}`}
                   </button>
                 </div>
               </>
@@ -172,50 +213,62 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
             {/* ── SCREEN 2: Concept suggestions ── */}
             {screen === 'suggestions' && (
               <>
-                <div style={s.header}>
-                  <button style={{ ...s.backBtn }} onClick={() => setScreen('albums')}>← Álbuns</button>
-                  <h3 style={s.title}>Escolhe um conceito</h3>
-                  <button style={s.closeBtn} onClick={handleClose}>✕</button>
-                </div>
-                <div style={{ ...s.body, padding: '16px 20px' }}>
+                <ModalHeader
+                  title="Escolhe um conceito"
+                  onClose={handleClose}
+                  onBack={() => setScreen('albums')}
+                  backLabel="Álbuns"
+                />
+
+                <div className="flex-1 overflow-y-auto" style={{ padding: '16px 20px' }}>
                   {(!aiLayout.suggestions || aiLayout.suggestions.length === 0) ? (
-                    <p style={s.hint}>Sem sugestões disponíveis.</p>
+                    <p className="text-sm font-light text-ink-faint text-center py-5">Sem sugestões disponíveis.</p>
                   ) : (
-                    <div style={s.conceptList}>
+                    <div className="flex flex-col gap-3">
                       {aiLayout.suggestions.map((concept, idx) => (
-                        <div key={idx} style={{ ...s.conceptCard, ...(chosenIdx === idx ? s.conceptCardActive : {}) }}>
+                        <div
+                          key={idx}
+                          className="rounded-lg overflow-hidden border transition-colors"
+                          style={{
+                            display: 'flex',
+                            flexDirection: isSmall ? 'column' : 'row',
+                            borderColor: chosenIdx === idx ? 'var(--mv-accent)' : 'var(--border)',
+                            boxShadow: chosenIdx === idx ? '0 0 0 3px var(--mv-accent-pale)' : 'none',
+                          }}
+                        >
                           {concept.hero_asset_id && (
-                            <div style={s.conceptThumb}>
+                            <div
+                              className="shrink-0 overflow-hidden"
+                              style={isSmall
+                                ? { height: 110, background: 'var(--paper-deep)' }
+                                : { width: 96, background: 'var(--paper-deep)' }}
+                            >
                               <img
                                 src={thumbUrl(concept.hero_asset_id, 'thumbnail')}
                                 alt=""
-                                style={s.conceptImg}
+                                className="w-full h-full object-cover block"
                               />
                             </div>
                           )}
-                          <div style={s.conceptBody}>
-                            <div style={s.conceptMeta}>
-                              <span style={s.strategyBadge}>
+                          <div className="flex flex-col gap-2" style={{ padding: '12px 14px', flex: 1 }}>
+                            <div className="flex gap-1.5 flex-wrap items-center">
+                              <span className="text-2xs font-medium px-1.5 py-0.5 rounded-full bg-accent-pale text-accent tracking-wide">
                                 {STRATEGY_LABELS[concept.strategy] || concept.strategy}
                               </span>
                               {concept.tone && (
-                                <span style={s.toneBadge}>
+                                <span className="text-2xs font-light text-ink-muted px-1.5 py-0.5 rounded-full border border-border">
                                   {TONE_LABELS[concept.tone] || ''} {concept.tone}
                                 </span>
                               )}
                               {concept.is_recommended && (
-                                <span style={s.recommendedBadge}>Recomendado</span>
+                                <span className="text-2xs font-medium px-1.5 py-0.5 rounded-full bg-success-pale text-success">Recomendado</span>
                               )}
                             </div>
-                            <p style={s.conceptTitle}>{concept.title_pt}</p>
+                            <p className="font-display text-base italic font-light text-ink leading-snug m-0">{concept.title_pt}</p>
                             {concept.description_pt && (
-                              <p style={s.conceptDesc}>{concept.description_pt}</p>
+                              <p className="text-xs font-light text-ink-muted leading-relaxed m-0">{concept.description_pt}</p>
                             )}
-                            <button
-                              className="btn btn-primary"
-                              style={s.applyBtn}
-                              onClick={() => handleApply(idx)}
-                            >
+                            <button className="btn btn-primary btn-sm self-start" style={{ marginTop: 2 }} onClick={() => handleApply(idx)}>
                               Usar este conceito
                             </button>
                           </div>
@@ -230,39 +283,45 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
             {/* ── SCREEN 3: Progress ── */}
             {screen === 'progress' && (
               <>
-                <div style={s.header}>
-                  <h3 style={s.title}>
-                    {aiLayout.status === 'applying' || (aiLayout.status === 'processing' && chosenIdx !== null)
-                      ? '✨ A criar história...'
-                      : '✨ A analisar fotos...'}
-                  </h3>
-                  <button style={s.closeBtn} onClick={handleClose}>✕</button>
-                </div>
-                <div style={{ ...s.body, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', justifyContent: 'center', minHeight: 180 }}>
+                <ModalHeader
+                  title={
+                    aiLayout.status === 'applying' || (aiLayout.status === 'processing' && chosenIdx !== null)
+                      ? '✨ A criar história…'
+                      : '✨ A analisar fotos…'
+                  }
+                  onClose={handleClose}
+                />
+
+                <div className="flex-1 flex flex-col gap-4 items-center justify-center" style={{ padding: '32px 20px', minHeight: 180 }}>
                   {aiLayout.status === 'error' ? (
-                    <p style={s.error}>{aiLayout.error}</p>
+                    <p className="text-sm font-light text-danger px-3 py-2 bg-danger/6 border border-danger/20 rounded-sm w-full text-center">{aiLayout.error}</p>
                   ) : aiLayout.status === 'done' ? (
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: 32, marginBottom: 8 }}>🎉</p>
-                      <p style={{ fontSize: 14, fontWeight: 600 }}>História criada com {aiLayout.blocksCreated} blocos!</p>
+                    <div className="text-center">
+                      <p className="mb-3" style={{ fontSize: 36 }}>🎉</p>
+                      <p className="font-display text-xl italic font-light text-ink">História criada!</p>
+                      <p className="text-sm font-light text-ink-muted mt-1">{aiLayout.blocksCreated} blocos adicionados</p>
                     </div>
                   ) : (
                     <>
-                      <div style={s.progressBar}>
-                        <div style={{ ...s.progressFill, width: `${aiLayout.progress}%` }} />
+                      <div className="w-full rounded-full overflow-hidden" style={{ height: 3, background: 'var(--paper-deep)' }}>
+                        <div
+                          className="h-full rounded-full transition-[width] duration-300"
+                          style={{ width: `${aiLayout.progress}%`, background: 'var(--mv-accent)' }}
+                        />
                       </div>
-                      <p style={s.progressLabel}>
+                      <p className="text-sm font-light text-ink-muted text-center">
                         {aiLayout.status === 'suggestions_ready'
                           ? 'Sugestões prontas!'
                           : aiLayout.total > 0
                           ? `${aiLayout.processed} / ${aiLayout.total} fotos`
-                          : 'A processar...'}
+                          : 'A processar…'}
                       </p>
                     </>
                   )}
                 </div>
+
                 {(aiLayout.status === 'done' || aiLayout.status === 'error') && (
-                  <div style={s.footer}>
+                  <div className="flex gap-2 justify-end shrink-0 border-t border-border bg-paper-warm" style={{ padding: '10px 20px' }}>
                     <button className="btn btn-primary" onClick={handleClose}>Fechar</button>
                   </div>
                 )}
@@ -275,110 +334,3 @@ export default function AiLayoutButton({ aiLayout, disabled, isMobile = false })
     </>
   );
 }
-
-const s = {
-  badge: {
-    display: 'inline-block', marginLeft: 6, fontSize: 10, fontWeight: 500,
-    padding: '1px 5px', borderRadius: 3,
-    background: 'var(--mv-accent-pale)', color: 'var(--mv-accent)',
-    verticalAlign: 'middle', letterSpacing: '0.02em',
-  },
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(26,24,20,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 300, backdropFilter: 'blur(3px)',
-  },
-  modal: {
-    background: 'var(--paper)', borderRadius: 'var(--radius-lg)',
-    width: 520, maxWidth: 'calc(100vw - 2rem)', maxHeight: '82vh',
-    display: 'flex', flexDirection: 'column',
-    boxShadow: 'var(--shadow-lg)', border: '0.5px solid var(--border)', overflow: 'hidden',
-  },
-  header: {
-    padding: '14px 20px', borderBottom: '0.5px solid var(--border)',
-    display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', flexShrink: 0,
-  },
-  title: { fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: 'var(--ink)', flex: 1 },
-  backBtn: {
-    background: 'none', border: 'none', fontSize: 12, fontWeight: 300, cursor: 'pointer',
-    color: 'var(--ink-muted)', padding: '0 8px 0 0', flexShrink: 0,
-  },
-  closeBtn: {
-    background: 'none', border: 'none', fontSize: 16, cursor: 'pointer',
-    color: 'var(--ink-faint)', width: 28, height: 28,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)',
-  },
-  body: { padding: '16px 20px', flex: 1, overflowY: 'auto' },
-  desc: { fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', marginBottom: 14, lineHeight: 1.6 },
-  hint: { color: 'var(--ink-faint)', fontSize: 13, fontWeight: 300, textAlign: 'center', padding: '20px 0' },
-  error: {
-    color: 'var(--danger)', fontSize: 13, fontWeight: 300, marginBottom: 8,
-    padding: '8px 12px',
-    background: 'rgba(176,80,80,0.06)',
-    border: '0.5px solid rgba(176,80,80,0.2)',
-    borderRadius: 'var(--radius-sm)',
-  },
-  list: { display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 16 },
-  item: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '9px 10px', borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', fontSize: 13, transition: 'background 0.1s',
-  },
-  albumName: { flex: 1, fontWeight: 400, fontSize: 13, color: 'var(--ink-soft)' },
-  albumCount: { fontSize: 12, fontWeight: 300, color: 'var(--ink-faint)' },
-  filterRow: {
-    display: 'flex', alignItems: 'center', gap: 7,
-    fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)', marginBottom: 14, cursor: 'pointer',
-  },
-  options: { borderTop: '0.5px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 },
-  optionRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 },
-  optionLabel: { color: 'var(--ink-soft)', fontWeight: 400 },
-  select: {
-    fontSize: 13, fontWeight: 300, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-    border: '0.5px solid var(--border)', background: 'var(--paper-warm)', color: 'var(--ink-soft)', cursor: 'pointer',
-  },
-  checkRow: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--ink-muted)', fontSize: 13, fontWeight: 300 },
-  footer: {
-    padding: '12px 20px', borderTop: '0.5px solid var(--border)',
-    background: 'var(--paper-warm)',
-    display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0,
-  },
-  // Concept cards
-  conceptList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  conceptCard: {
-    border: '0.5px solid var(--border)', borderRadius: 'var(--radius)',
-    overflow: 'hidden', display: 'flex', flexDirection: 'row',
-    transition: 'border-color 0.15s', cursor: 'default',
-  },
-  conceptCardActive: { borderColor: 'var(--mv-accent)' },
-  conceptThumb: { width: 90, flexShrink: 0, background: 'var(--paper-deep)' },
-  conceptImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  conceptBody: { padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 },
-  conceptMeta: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
-  strategyBadge: {
-    fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 20,
-    background: 'var(--mv-accent-pale)', color: 'var(--mv-accent)',
-    letterSpacing: '0.03em',
-  },
-  toneBadge: {
-    fontSize: 10, fontWeight: 300, color: 'var(--ink-muted)', padding: '2px 6px',
-    borderRadius: 20, border: '0.5px solid var(--border)',
-  },
-  recommendedBadge: {
-    fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 20,
-    background: 'var(--success-pale)', color: 'var(--success)',
-  },
-  conceptTitle: { fontSize: 13, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.3, margin: 0 },
-  conceptDesc: { fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)', lineHeight: 1.5, margin: 0 },
-  applyBtn: { alignSelf: 'flex-start', marginTop: 4, fontSize: 12, padding: '5px 12px' },
-  // Progress
-  progressBar: {
-    width: '100%', height: 3, background: 'var(--paper-deep)',
-    borderRadius: 3, overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%', background: 'var(--mv-accent)',
-    transition: 'width 0.4s ease', borderRadius: 3,
-  },
-  progressLabel: { fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', textAlign: 'center' },
-};
