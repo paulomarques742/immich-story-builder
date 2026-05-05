@@ -184,4 +184,82 @@ async function analyseAlbumBatch(assets, fetchThumbFn, fetchExifFn, onProgress, 
   return results;
 }
 
-module.exports = { analysePhoto, generateNarrative, analyseAlbumBatch };
+async function generateCaption(base64Image, mimeType = 'image/jpeg', context = {}) {
+  const ai = getClient();
+  const locationLine = context.city
+    ? `Local: ${context.city}${context.country ? ', ' + context.country : ''}`
+    : '';
+  const dateLine = context.date ? `Data: ${context.date.slice(0, 10)}` : '';
+  const peopleLine = context.people?.length ? `Pessoas: ${context.people.join(', ')}` : '';
+  const ctxBlock = [locationLine, dateLine, peopleLine].filter(Boolean).join('\n');
+
+  const prompt = `Escreve UMA frase poética em português europeu (máx. 15 palavras) para usar como legenda desta fotografia. Sem clichés, sem hashtags. Responde APENAS com a frase, sem aspas.${ctxBlock ? '\n\n' + ctxBlock : ''}`;
+
+  return withRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [{
+        parts: [
+          { inlineData: { mimeType, data: base64Image } },
+          { text: prompt },
+        ],
+      }],
+      config: { thinkingConfig: { thinkingBudget: 0 } },
+    });
+    return (response.text?.().trim() || '').replace(/^["«»]|["«»]$/g, '');
+  }).catch(() => '');
+}
+
+async function generateStoryConcepts(albumSummary, sampleBase64Images) {
+  const ai = getClient();
+  const { peopleNames, cities, dateRange, totalPhotos, favoritesCount, dominantTags } = albumSummary;
+
+  const metaSummary = [
+    `Total de fotos: ${totalPhotos}`,
+    favoritesCount ? `Favoritas: ${favoritesCount}` : '',
+    peopleNames.length ? `Pessoas identificadas: ${peopleNames.join(', ')}` : '',
+    cities.length ? `Localizações: ${cities.join(', ')}` : '',
+    dateRange ? `Período: ${dateRange.from} a ${dateRange.to}` : '',
+    dominantTags.length ? `Tags dominantes: ${dominantTags.join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+
+  const prompt = `És um editor de histórias visuais. Com base nestas fotografias e nos seus metadados, sugere EXACTAMENTE 3 conceitos distintos de story narrativa.
+
+Metadados do álbum:
+${metaSummary}
+
+Cada conceito deve ter uma abordagem diferente de organização: por exemplo cronológica, por pessoa, por localização, por tema visual, ou mista.
+
+Responde APENAS com JSON válido, sem markdown, sem explicação:
+[
+  {
+    "title_pt": "título em PT (máx 6 palavras)",
+    "description_pt": "descrição em 2 frases em PT, poética mas concisa",
+    "strategy": "chronological|by_person|by_location|by_theme|mixed",
+    "tone": "palavra que descreve o tom: nostálgico|aventureiro|íntimo|documental|lírico",
+    "hero_hint": "descreve em inglês qual foto seria o hero ideal (ex: 'sunset over Lisbon waterfront')"
+  }
+]`;
+
+  const parts = sampleBase64Images.slice(0, 10).map((img) => ({
+    inlineData: { mimeType: 'image/jpeg', data: img },
+  }));
+  parts.push({ text: prompt });
+
+  return withRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [{ parts }],
+      config: { thinkingConfig: { thinkingBudget: 0 } },
+    });
+    const text = (response.text?.().trim() || '').replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed.slice(0, 3) : [];
+    } catch {
+      return [];
+    }
+  }).catch(() => []);
+}
+
+module.exports = { analysePhoto, generateNarrative, analyseAlbumBatch, generateCaption, generateStoryConcepts };

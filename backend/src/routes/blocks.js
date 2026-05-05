@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { buildBlocksFromAssets } = require('../lib/album-import');
 
 const router = express.Router({ mergeParams: true });
 
@@ -61,19 +62,43 @@ router.post('/import-album', requireAuth, async (req, res) => {
   if (!Array.isArray(album_ids) || album_ids.length === 0) {
     return res.status(400).json({ error: 'album_ids must be a non-empty array' });
   }
-  const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+
+  const cfg = {
+    burstSeconds:      parseInt(process.env.IMPORT_BURST_THRESHOLD_SECONDS, 10) || 45,
+    gpsMeters:         parseInt(process.env.IMPORT_GPS_PROXIMITY_METERS, 10)    || 200,
+    videoSeconds:      parseInt(process.env.IMPORT_VIDEO_LONG_SECONDS, 10)      || 10,
+    featuredMinRating: parseInt(process.env.IMPORT_FEATURED_MIN_RATING, 10)     || 4,
+  };
+
   const immich = axios.create({
-    baseURL: `${baseURL}/api`,
+    baseURL: `${process.env.IMMICH_URL?.replace(/\/$/, '')}/api`,
     headers: { 'x-api-key': process.env.IMMICH_API_KEY },
   });
 
   try {
-    const allAssets = [];
-    for (const albumId of album_ids) {
-      const { data: album } = await immich.get(`/albums/${albumId}`);
-      for (const asset of (album.assets || [])) {
-        if (asset.type === 'IMAGE' || asset.type === 'VIDEO') {
-          allAssets.push(asset);
+    // Pass 1 — Enrichment via metadata search (preferred) with album fallback
+    let allAssets = [];
+    try {
+      for (const albumId of album_ids) {
+        let page = 1;
+        while (true) {
+          const { data } = await immich.post('/search/metadata', {
+            albumIds: [albumId], withExif: true, size: 1000, page,
+          });
+          const items = (data.assets?.items || [])
+            .filter((a) => a.type === 'IMAGE' || a.type === 'VIDEO');
+          allAssets.push(...items);
+          if (items.length < 1000) break;
+          page++;
+        }
+      }
+    } catch (searchErr) {
+      console.warn('Metadata search failed, falling back to album endpoint:', searchErr.message);
+      allAssets = [];
+      for (const albumId of album_ids) {
+        const { data: album } = await immich.get(`/albums/${albumId}`);
+        for (const asset of (album.assets || [])) {
+          if (asset.type === 'IMAGE' || asset.type === 'VIDEO') allAssets.push(asset);
         }
       }
     }
@@ -84,46 +109,19 @@ router.post('/import-album', requireAuth, async (req, res) => {
 
     allAssets.sort((a, b) => new Date(a.fileCreatedAt) - new Date(b.fileCreatedAt));
 
+    // Passes 1.5–5: smart layout
+    const blockData = buildBlocksFromAssets(allAssets, cfg);
+
+    // Insert blocks
     const maxRow = db.prepare('SELECT MAX(position) as m FROM blocks WHERE story_id = ?').get(req.params.storyId);
     let position = (maxRow.m ?? -1) + 1;
 
-    const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-    const newBlocks = [];
-
-    // First asset → hero
-    const heroAsset = allAssets[0];
-    newBlocks.push({ type: 'hero', content: JSON.stringify({ asset_id: heroAsset.id, caption: '', overlay: true, height: 'full' }), position: position++ });
-
-    // Remaining → group by year-month → divider + grids of 3
-    const remaining = allAssets.slice(1);
-    const groups = new Map();
-    for (const asset of remaining) {
-      const d = new Date(asset.fileCreatedAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(asset);
-    }
-
-    for (const [key, assets] of groups) {
-      const [year, month] = key.split('-');
-      const label = `${year} · ${MONTH_NAMES[parseInt(month) - 1]}`;
-      newBlocks.push({ type: 'divider', content: JSON.stringify({ style: 'line', label }), position: position++ });
-      for (let i = 0; i < assets.length; i += 3) {
-        const chunk = assets.slice(i, i + 3);
-        newBlocks.push({
-          type: 'grid',
-          content: JSON.stringify({ asset_ids: chunk.map((a) => a.id), columns: 3, gap: 'sm', aspect: 'square' }),
-          position: position++,
-        });
-      }
-    }
-
     const insert = db.prepare('INSERT INTO blocks (id, story_id, type, position, content) VALUES (?, ?, ?, ?, ?)');
     db.transaction((blocks) => {
-      for (const b of blocks) insert.run(uuidv4(), req.params.storyId, b.type, b.position, b.content);
-    })(newBlocks);
+      for (const b of blocks) {
+        insert.run(uuidv4(), req.params.storyId, b.type, position++, JSON.stringify(b.content));
+      }
+    })(blockData);
 
     // Merge album_ids into story
     const storyRow = db.prepare('SELECT immich_album_ids FROM stories WHERE id = ?').get(req.params.storyId);

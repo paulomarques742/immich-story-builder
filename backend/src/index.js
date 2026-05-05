@@ -15,6 +15,7 @@ const blocksRoutes = require('./routes/blocks');
 const immichRoutes = require('./routes/immich');
 const commentsRoutes = require('./routes/comments');
 const aiRoutes = require('./routes/ai');
+const contributionsRoutes = require('./routes/contributions');
 const startSyncJob = require('./sync');
 
 // Fail fast if critical secrets are missing or too weak
@@ -81,6 +82,7 @@ app.use('/api/stories', storiesRoutes);
 app.use('/api/stories/:storyId/blocks', blocksRoutes);
 app.use('/api/immich', immichRoutes);
 app.use('/api', commentsRoutes);
+app.use('/api', contributionsRoutes);
 
 // ── Public story: GET /api/public/:slug ───────────────────────
 app.get('/api/public/:slug', (req, res) => {

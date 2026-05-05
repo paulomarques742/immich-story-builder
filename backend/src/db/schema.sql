@@ -77,8 +77,21 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
   total          INTEGER DEFAULT 0,
   blocks_created INTEGER DEFAULT 0,
   error          TEXT,
+  suggestions    TEXT,
   created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS contributions (
+  id              TEXT PRIMARY KEY,
+  story_id        TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  immich_asset_id TEXT,
+  original_name   TEXT NOT NULL,
+  mime_type       TEXT NOT NULL,
+  uploader_name   TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(status IN ('pending','approved','rejected')),
+  uploaded_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS asset_ai_scores (
@@ -93,5 +106,11 @@ CREATE TABLE IF NOT EXISTS asset_ai_scores (
   country           TEXT,
   lat               REAL,
   lng               REAL,
-  analysed_at       TEXT DEFAULT CURRENT_TIMESTAMP
+  analysed_at       TEXT DEFAULT CURRENT_TIMESTAMP,
+  title_pt          TEXT DEFAULT '',
+  people_json       TEXT,
+  tags_json         TEXT,
+  is_favorite       INTEGER DEFAULT 0,
+  exif_rating       INTEGER,
+  source            TEXT DEFAULT 'gemini'
 );

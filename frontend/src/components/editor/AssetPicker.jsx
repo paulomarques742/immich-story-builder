@@ -3,16 +3,19 @@ import api from '../../lib/api.js';
 import { thumbUrl } from '../../lib/immich.js';
 
 const NONE_ALBUM = { id: '__none__', albumName: 'Fora de álbuns' };
+const CONTRIB_ALBUM = { id: '__contributions__', albumName: '📥 Contribuições' };
 
-export default function AssetPicker({ onSelect, onClose, multiple = false, initialSelected = [], typeFilter }) {
+export default function AssetPicker({ onSelect, onClose, multiple = false, initialSelected = [], typeFilter, storyId }) {
   const [albums, setAlbums] = useState([]);
   const [sharedOnly, setSharedOnly] = useState(false);
+  const [albumSearch, setAlbumSearch] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [assets, setAssets] = useState([]);
   const [picked, setPicked] = useState(new Set(initialSelected));
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [albumError, setAlbumError] = useState('');
+  const [contribCount, setContribCount] = useState(0);
 
   useEffect(() => {
     setLoadingAlbums(true);
@@ -24,6 +27,13 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
       .finally(() => setLoadingAlbums(false));
   }, [sharedOnly]);
 
+  useEffect(() => {
+    if (!storyId) return;
+    api.get(`/api/stories/${storyId}/contributions/assets`)
+      .then((r) => setContribCount(r.data.length))
+      .catch(() => {});
+  }, [storyId]);
+
   async function openAlbum(album) {
     setSelectedAlbum(album);
     setLoadingAssets(true);
@@ -32,6 +42,10 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
         const params = typeFilter ? `?type=${typeFilter}` : '';
         const r = await api.get(`/api/immich/assets${params}`);
         setAssets(r.data);
+      } else if (album.id === '__contributions__') {
+        const r = await api.get(`/api/stories/${storyId}/contributions/assets`);
+        setAssets(r.data);
+        setContribCount(r.data.length);
       } else {
         const r = await api.get(`/api/immich/albums/${album.id}/assets`);
         setAssets(r.data);
@@ -62,21 +76,39 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
     ? assets.filter((a) => a.type === typeFilter)
     : assets;
 
+  const filteredAlbums = albums.filter((a) =>
+    a.albumName.toLowerCase().includes(albumSearch.toLowerCase())
+  );
+
   return (
     <div style={s.overlay} onClick={onClose}>
-      <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+      <div className="ap-modal" onClick={(e) => e.stopPropagation()}>
+
         {/* Header */}
         <div style={s.header}>
-          <h3 style={s.title}>{multiple ? 'Seleccionar assets' : 'Seleccionar asset'}</h3>
-          <button style={s.closeBtn} onClick={onClose}>✕</button>
+          <h3 style={s.title}>{multiple ? 'Seleccionar fotos' : 'Seleccionar foto'}</h3>
+          <button className="ap-close-btn" style={s.closeBtn} onClick={onClose} aria-label="Fechar">✕</button>
         </div>
 
         {/* Body */}
-        <div style={s.body}>
-          {/* Album list */}
-          <aside style={s.albumList}>
+        <div className="ap-body">
+
+          {/* Album sidebar */}
+          <aside className="ap-sidebar">
+
+            {/* Search — hidden on mobile via CSS */}
+            <div style={s.searchWrap} className="ap-search-wrap">
+              <input
+                className="field"
+                style={s.searchInput}
+                placeholder="Pesquisar álbuns…"
+                value={albumSearch}
+                onChange={(e) => setAlbumSearch(e.target.value)}
+              />
+            </div>
+
             {/* Toggle todos / partilhados */}
-            <div style={s.toggleRow}>
+            <div style={s.toggleRow} className="ap-toggle-row">
               <button
                 style={{ ...s.toggleBtn, ...(sharedOnly ? {} : s.toggleBtnActive) }}
                 onClick={() => setSharedOnly(false)}
@@ -87,20 +119,38 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
               >Partilhados</button>
             </div>
 
+            {/* Contributions — shown only when storyId provided and there are approved ones */}
+            {storyId && (
+              <button
+                className={`ap-album-btn${selectedAlbum?.id === '__contributions__' ? ' active' : ''}`}
+                style={{ ...s.albumBtn, ...(selectedAlbum?.id === '__contributions__' ? s.albumBtnActive : {}) }}
+                onClick={() => openAlbum(CONTRIB_ALBUM)}
+              >
+                <span style={s.albumName}>📥 Contribuições</span>
+                {contribCount > 0 && <span style={s.albumCount}>{contribCount}</span>}
+              </button>
+            )}
+
             {/* Fora de álbuns */}
             <button
+              className={`ap-album-btn${selectedAlbum?.id === '__none__' ? ' active' : ''}`}
               style={{ ...s.albumBtn, ...(selectedAlbum?.id === '__none__' ? s.albumBtnActive : {}) }}
               onClick={() => openAlbum(NONE_ALBUM)}
             >
               <span style={s.albumName}>📁 Fora de álbuns</span>
             </button>
 
-            <p style={s.sectionLabel}>Álbuns</p>
-            {loadingAlbums && <p style={s.hint}>A carregar...</p>}
+            <p style={s.sectionLabel} className="ap-section-label">Álbuns</p>
+
+            {loadingAlbums && (
+              <div style={s.loadingRow}><div className="spinner spinner-sm" /><span style={s.hint}>A carregar…</span></div>
+            )}
             {albumError && <p style={s.error}>{albumError}</p>}
-            {albums.map((a) => (
+
+            {filteredAlbums.map((a) => (
               <button
                 key={a.id}
+                className={`ap-album-btn${selectedAlbum?.id === a.id ? ' active' : ''}`}
                 style={{ ...s.albumBtn, ...(selectedAlbum?.id === a.id ? s.albumBtnActive : {}) }}
                 onClick={() => openAlbum(a)}
               >
@@ -108,25 +158,31 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
                 <span style={s.albumCount}>{a.assetCount ?? ''}</span>
               </button>
             ))}
+
+            {!loadingAlbums && filteredAlbums.length === 0 && !albumError && albumSearch && (
+              <p style={s.hint}>Sem resultados</p>
+            )}
           </aside>
 
           {/* Asset grid */}
           <main style={s.assetArea}>
             {!selectedAlbum && !loadingAlbums && (
-              <p style={s.hint}>Selecciona um álbum à esquerda</p>
+              <p style={{ ...s.hint, marginTop: 32 }}>Selecciona um álbum à esquerda</p>
             )}
-            {loadingAssets && <p style={s.hint}>A carregar assets...</p>}
+            {loadingAssets && (
+              <div style={s.loadingCenter}><div className="spinner" /></div>
+            )}
             {!loadingAssets && selectedAlbum && (
               <>
-                {visibleAssets.length === 0 && <p style={s.hint}>Sem assets</p>}
-                <div style={s.grid}>
+                {visibleAssets.length === 0 && <p style={s.hint}>Sem fotos neste álbum</p>}
+                <div style={s.grid} className="ap-grid">
                   {visibleAssets.map((a) => (
                     <div
                       key={a.id}
                       style={{ ...s.thumb, ...(picked.has(a.id) ? s.thumbSelected : {}) }}
                       onClick={() => toggle(a.id)}
                     >
-                      <img src={thumbUrl(a.id)} alt="" style={s.thumbImg} />
+                      <img src={thumbUrl(a.id)} alt="" style={s.thumbImg} loading="lazy" />
                       {a.type === 'VIDEO' && <div style={s.videoIcon}>▶</div>}
                       {picked.has(a.id) && <div style={s.check}>✓</div>}
                     </div>
@@ -138,9 +194,9 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
         </div>
 
         {/* Footer */}
-        <div style={s.footer}>
-          <button style={s.btnSecondary} onClick={onClose}>Cancelar</button>
-          <button style={s.btnPrimary} onClick={confirm} disabled={picked.size === 0}>
+        <div className="ap-footer" style={s.footer}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={confirm} disabled={picked.size === 0}>
             {multiple ? `Confirmar (${picked.size})` : 'Confirmar'}
           </button>
         </div>
@@ -150,31 +206,97 @@ export default function AssetPicker({ onSelect, onClose, multiple = false, initi
 }
 
 const s = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 },
-  modal: { background: '#fff', borderRadius: 12, width: '88vw', maxWidth: 960, height: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 16px 64px rgba(0,0,0,.3)' },
-  header: { padding: '14px 20px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
-  title: { fontSize: 15, fontWeight: 700 },
-  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999', lineHeight: 1 },
-  body: { display: 'flex', flex: 1, overflow: 'hidden' },
-  albumList: { width: 200, borderRight: '1px solid #eee', padding: '12px 8px', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  toggleRow: { display: 'flex', gap: 4, marginBottom: 8 },
-  toggleBtn: { flex: 1, padding: '5px 0', fontSize: 11, border: '1px solid #ddd', borderRadius: 5, background: '#fff', cursor: 'pointer', color: '#666' },
-  toggleBtnActive: { background: '#1a1a1a', color: '#fff', border: '1px solid #1a1a1a', fontWeight: 600 },
-  sectionLabel: { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 8, padding: '0 6px' },
-  albumBtn: { width: '100%', padding: '7px 10px', background: 'none', border: 'none', textAlign: 'left', borderRadius: 6, fontSize: 13, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 },
-  albumBtnActive: { background: '#f0f0f0', fontWeight: 600 },
+  overlay: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(26,24,20,0.45)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 300, backdropFilter: 'blur(3px)',
+  },
+  header: {
+    padding: '14px 20px',
+    borderBottom: '0.5px solid var(--border)',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    flexShrink: 0,
+  },
+  title: {
+    fontFamily: 'var(--font-display)',
+    fontSize: 20, fontWeight: 500, color: 'var(--ink)',
+  },
+  closeBtn: {
+    background: 'none', border: 'none',
+    fontSize: 16, cursor: 'pointer',
+    color: 'var(--ink-faint)',
+    width: 36, height: 36,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 6, flexShrink: 0,
+    transition: 'background 0.12s, color 0.12s',
+  },
+  searchWrap: { marginBottom: 8 },
+  searchInput: { fontSize: 12, padding: '6px 10px' },
+  toggleRow: { display: 'flex', marginBottom: 8, borderBottom: '0.5px solid var(--border)' },
+  toggleBtn: {
+    flex: 1, padding: '6px 0', fontSize: 11, fontWeight: 400,
+    border: 'none',
+    borderBottom: '1.5px solid transparent',
+    background: 'none', cursor: 'pointer',
+    color: 'var(--ink-muted)', transition: 'color 0.15s',
+    marginBottom: -0.5,
+  },
+  toggleBtnActive: {
+    color: 'var(--ink)',
+    borderBottomColor: 'var(--mv-accent)',
+    fontWeight: 500,
+  },
+  sectionLabel: {
+    fontSize: 9, color: 'var(--ink-faint)',
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    marginBottom: 4, marginTop: 8, padding: '0 6px', fontWeight: 500,
+  },
+  albumBtn: {
+    width: '100%', padding: '9px 10px',
+    background: 'none', border: 'none',
+    textAlign: 'left', borderRadius: 'var(--radius-sm)',
+    fontSize: 12, fontWeight: 300, cursor: 'pointer',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4,
+    color: 'var(--ink-soft)',
+    minHeight: 38,
+  },
+  albumBtnActive: { background: 'var(--mv-accent-pale)', color: 'var(--ink)' },
   albumName: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  albumCount: { fontSize: 11, color: '#bbb', flexShrink: 0 },
+  albumCount: { fontSize: 11, fontWeight: 300, color: 'var(--ink-faint)', flexShrink: 0 },
   assetArea: { flex: 1, overflowY: 'auto', padding: 12 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 },
-  thumb: { position: 'relative', aspectRatio: '1/1', overflow: 'hidden', borderRadius: 6, cursor: 'pointer', border: '2px solid transparent' },
-  thumbSelected: { border: '2px solid #1a1a1a' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(86px, 1fr))', gap: 6 },
+  thumb: {
+    position: 'relative', aspectRatio: '1/1',
+    overflow: 'hidden', borderRadius: 'var(--radius-xs)',
+    cursor: 'pointer', border: '2px solid transparent',
+    transition: 'border-color 0.12s',
+  },
+  thumbSelected: { border: '2px solid var(--mv-accent)' },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  videoIcon: { position: 'absolute', bottom: 4, left: 4, fontSize: 11, color: '#fff', background: 'rgba(0,0,0,.55)', borderRadius: 3, padding: '1px 4px', lineHeight: 1.4 },
-  check: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, background: '#1a1a1a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 },
-  hint: { color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 32 },
-  error: { color: '#c0392b', fontSize: 12, padding: '0 6px' },
-  footer: { padding: '12px 20px', borderTop: '1px solid #eee', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 },
-  btnPrimary: { padding: '8px 18px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
-  btnSecondary: { padding: '8px 18px', background: '#fff', color: '#333', border: '1px solid #ddd', borderRadius: 7, fontSize: 14, cursor: 'pointer' },
+  videoIcon: {
+    position: 'absolute', bottom: 4, left: 4,
+    fontSize: 11, color: '#fff',
+    background: 'rgba(0,0,0,.55)', borderRadius: 3,
+    padding: '1px 4px', lineHeight: 1.4,
+  },
+  check: {
+    position: 'absolute', top: 4, right: 4,
+    width: 20, height: 20,
+    background: 'var(--mv-accent)', color: '#fff',
+    borderRadius: '50%', display: 'flex',
+    alignItems: 'center', justifyContent: 'center',
+    fontSize: 10, fontWeight: 500,
+  },
+  hint: { color: 'var(--ink-faint)', fontSize: 13, fontWeight: 300, textAlign: 'center', marginTop: 32, margin: 0 },
+  error: { color: 'var(--danger)', fontSize: 12, padding: '0 6px' },
+  loadingRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', color: 'var(--ink-faint)', fontSize: 12, fontWeight: 300 },
+  loadingCenter: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32 },
+  footer: {
+    padding: '12px 20px',
+    borderTop: '0.5px solid var(--border)',
+    background: 'var(--paper-warm)',
+    display: 'flex', gap: 8, justifyContent: 'flex-end',
+    flexShrink: 0,
+  },
 };

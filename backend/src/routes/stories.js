@@ -75,7 +75,7 @@ router.put('/:id', requireAuth, (req, res) => {
   if (!story) return res.status(404).json({ error: 'Not found' });
   if (!canEdit(req.user, story)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { title, description, cover_asset_id, immich_album_ids, sync_mode, slug, theme } = req.body;
+  const { title, description, cover_asset_id, immich_album_ids, sync_mode, slug, theme, contributions_enabled } = req.body;
 
   // validate new slug uniqueness if changing
   if (slug && slug !== story.slug) {
@@ -107,6 +107,18 @@ router.put('/:id', requireAuth, (req, res) => {
   if (theme !== undefined) {
     db.prepare('UPDATE stories SET theme = ? WHERE id = ?').run(
       theme === null ? null : JSON.stringify(theme),
+      story.id
+    );
+  }
+
+  if (contributions_enabled !== undefined) {
+    // contributions only allowed when story has a password
+    const current = db.prepare('SELECT password_hash FROM stories WHERE id = ?').get(story.id);
+    if (!current.password_hash && contributions_enabled) {
+      return res.status(400).json({ error: 'Set a password before enabling contributions' });
+    }
+    db.prepare('UPDATE stories SET contributions_enabled = ? WHERE id = ?').run(
+      contributions_enabled ? 1 : 0,
       story.id
     );
   }
@@ -143,6 +155,10 @@ router.post('/:id/password', requireAuth, (req, res) => {
   const { password } = req.body;
   const hash = password ? bcrypt.hashSync(password, 10) : null;
   db.prepare('UPDATE stories SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, story.id);
+  // removing password disables contributions automatically
+  if (!hash) {
+    db.prepare('UPDATE stories SET contributions_enabled = 0 WHERE id = ?').run(story.id);
+  }
   res.json({ has_password: !!hash });
 });
 

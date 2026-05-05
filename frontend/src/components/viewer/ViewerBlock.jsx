@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import { publicThumbUrl, publicOriginalUrl } from '../../lib/immich.js';
+import ViewerMapSkinned from './ViewerMapSkinned';
 import { useState } from 'react';
 
 // ── Like / comment overlay ────────────────────────────────────────
@@ -79,7 +79,7 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
         </div>
       );
     case 'map':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerMap content={content} /></div>;
+      return <div id={`block-${block.id}`} style={dimStyle}><ViewerMapSkinned content={content} /></div>;
     case 'video':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} thumbUrlFn={thumbUrlFn} originalUrlFn={originalUrlFn} /></div>;
     case 'quote':
@@ -280,14 +280,16 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
     );
   }
 
-  // Two columns + portrait → duo
-  if (columns === 2 && aspect === 'portrait') {
+  // Two columns + portrait or explicit duo layout → duo uniform grid
+  const isDuo = content.layout === 'duo' || (columns === 2 && aspect === 'portrait' && content.layout !== 'asymmetric');
+  if (columns === 2 && isDuo) {
+    const duoAspect = aspect === 'landscape' ? '16/9' : aspect === 'square' ? '1/1' : '3/4';
     return (
       <div className="mv-photo-duo" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: gapValue, margin: '2rem 0' }}>
         {asset_ids.map((id) => (
           <GridItem key={id} id={id}
             style={{ borderRadius: 5, overflow: 'hidden', boxShadow: '0 1px 8px rgba(26,24,20,0.08)' }}
-            imgStyle={{ aspectRatio: '3/4', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            imgStyle={{ aspectRatio: duoAspect, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             className="mv-photo-duo-item"
           />
         ))}
@@ -398,89 +400,6 @@ function PhotoFull({ assetId, slug, caption, onOpen, thumbUrlFn = publicThumbUrl
           }}>{caption}</span>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Map ───────────────────────────────────────────────────────────
-const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-
-const PinIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mv-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-    <circle cx="12" cy="10" r="3" />
-  </svg>
-);
-
-function ViewerMap({ content }) {
-  const { mode = 'manual', label, lat, lng, zoom = 12, show_route, route_color = '#c4795a' } = content;
-
-  const markers = mode === 'auto' ? (content.resolved_markers || []).filter((m) => m.lat != null) : (lat && lng ? [{ lat, lng, label }] : []);
-  const positions = markers.map((m) => [m.lat, m.lng]);
-  const center = positions[0] || [38.7, -9.1];
-
-  if (markers.length === 0) {
-    return (
-      <div style={{
-        borderRadius: 8, overflow: 'hidden', border: '1px solid var(--paper-deep)',
-        background: 'var(--paper-warm)', margin: '2.5rem 0',
-      }}>
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--ink-muted)' }}>
-            {mode === 'manual' ? 'Define lat/lng nas propriedades' : 'Sem coordenadas GPS. Resolve os assets no editor.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      borderRadius: 8, overflow: 'hidden',
-      border: '1px solid var(--paper-deep)',
-      background: 'var(--paper-warm)', margin: '2.5rem 0',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '1rem 1.5rem', borderBottom: '1px solid var(--paper-deep)',
-        display: 'flex', alignItems: 'center', gap: '0.6rem',
-      }}>
-        <PinIcon />
-        <div>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 400, color: 'var(--ink)' }}>
-            {label || 'Mapa'}
-          </p>
-          {markers.length > 1 && (
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 300, color: 'var(--ink-muted)' }}>
-              {markers.length} localizações
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Map canvas */}
-      <MapContainer center={center} zoom={zoom} style={{ height: 280, width: '100%' }} scrollWheelZoom={false}>
-        <TileLayer url={OSM_URL} attribution={OSM_ATTR} />
-        {markers.map((m, i) => (
-          <Marker key={i} position={[m.lat, m.lng]}>
-            {m.label && <Popup>{m.label}</Popup>}
-          </Marker>
-        ))}
-        {show_route && positions.length > 1 && (
-          <Polyline positions={positions} color={route_color} weight={2.5} dashArray="6 4" opacity={0.7} />
-        )}
-      </MapContainer>
-
-      {/* Attribution */}
-      <div style={{
-        padding: '0.5rem 1rem', borderTop: '1px solid var(--paper-deep)',
-        display: 'flex', justifyContent: 'space-between',
-        fontFamily: 'var(--font-body)', fontSize: '0.65rem', color: 'var(--ink-faint)',
-      }}>
-        <span>© OpenStreetMap contributors</span>
-        {markers.length > 1 && <span>{markers.length} pontos</span>}
-      </div>
     </div>
   );
 }

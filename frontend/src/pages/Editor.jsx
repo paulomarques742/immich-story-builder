@@ -7,9 +7,10 @@ import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
 import AlbumImporter from '../components/editor/AlbumImporter.jsx';
 import AiLayoutButton from '../components/editor/AiLayoutButton.jsx';
-import AiProgressModal from '../components/editor/AiProgressModal.jsx';
 import ThemePicker from '../components/editor/ThemePicker.jsx';
 import StorySettingsModal from '../components/editor/StorySettingsModal.jsx';
+import ContributionsPanel from '../components/editor/ContributionsPanel.jsx';
+import { listContributions } from '../lib/api.js';
 import { useAiLayout } from '../hooks/useAiLayout.js';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 import { buildThemeVars, getTheme } from '../lib/themes.js';
@@ -67,9 +68,9 @@ const iz = {
     width: 24,
     height: 24,
     borderRadius: '50%',
-    border: '1.5px solid var(--border-strong)',
-    background: 'var(--surface)',
-    color: 'var(--text-muted)',
+    border: '0.5px solid var(--border-strong)',
+    background: 'var(--paper)',
+    color: 'var(--ink-muted)',
     fontSize: 16,
     lineHeight: 1,
     cursor: 'pointer',
@@ -86,12 +87,12 @@ const iz = {
     left: '50%',
     transform: 'translateX(-50%)',
     marginTop: 4,
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
+    background: 'var(--paper)',
+    border: '0.5px solid var(--border)',
     borderRadius: 'var(--radius)',
     zIndex: 50,
     overflow: 'hidden',
-    boxShadow: 'var(--shadow)',
+    boxShadow: 'var(--shadow-md)',
     minWidth: 160,
   },
   item: {
@@ -104,8 +105,9 @@ const iz = {
     border: 'none',
     textAlign: 'left',
     fontSize: 13,
+    fontWeight: 300,
     cursor: 'pointer',
-    color: 'var(--text)',
+    color: 'var(--ink-soft)',
     transition: 'background 0.1s',
   },
   icon: { fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 },
@@ -124,10 +126,11 @@ export default function Editor() {
   const [rightOpen, setRightOpen] = useState(!window.matchMedia('(max-width: 720px)').matches);
   const [insertMenuIdx, setInsertMenuIdx] = useState(null);
   const [showImporter, setShowImporter] = useState(false);
-  const [showAiProgress, setShowAiProgress] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showContribs, setShowContribs] = useState(false);
+  const [pendingContribs, setPendingContribs] = useState(0);
   const [syncCount, setSyncCount] = useState(0);
 
   const aiLayout = useAiLayout(id, async () => {
@@ -148,10 +151,12 @@ export default function Editor() {
       api.get(`/api/stories/${id}`),
       api.get(`/api/stories/${id}/blocks`),
       api.get(`/api/stories/${id}/sync/status`).catch(() => ({ data: { new_asset_count: 0 } })),
-    ]).then(([sRes, bRes, syncRes]) => {
+      listContributions(id, 'pending').catch(() => ({ data: [] })),
+    ]).then(([sRes, bRes, syncRes, contribRes]) => {
       setStory(sRes.data);
       setBlocks(bRes.data);
       setSyncCount(syncRes.data.new_asset_count || 0);
+      setPendingContribs(contribRes.data.length || 0);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -240,7 +245,12 @@ export default function Editor() {
 
   const canvasStyle = isMobile ? { ...s.storyCanvas, padding: '0 1rem' } : s.storyCanvas;
 
-  if (loading) return <div style={s.loading}>A carregar editor…</div>;
+  if (loading) return (
+    <div style={s.loading}>
+      <div className="spinner" style={{ marginBottom: 16 }} />
+      <span style={{ fontSize: 13, fontWeight: 300, color: 'var(--ink-faint)' }}>A carregar editor…</span>
+    </div>
+  );
   if (!story) return <div style={s.loading}>Story não encontrada.</div>;
 
   return (
@@ -256,33 +266,70 @@ export default function Editor() {
         </button>
         <div style={s.topbarRight}>
           {syncCount > 0 && (
-            <button className="btn btn-warn" onClick={dismissSync} title="Dispensar notificações de sync">
-              📸 {!isMobile && `${syncCount} novas fotos  `}✕
-            </button>
+            <div style={s.syncBadge}>
+              <svg width="6" height="6" viewBox="0 0 6 6" fill="var(--mv-accent)" style={{ flexShrink: 0 }}>
+                <circle cx="3" cy="3" r="3"/>
+              </svg>
+              {!isMobile && <span style={{ fontSize: 12, fontWeight: 300, color: 'var(--ink-soft)' }}>{syncCount} novas fotos</span>}
+              <button style={s.syncDismiss} onClick={dismissSync} title="Dispensar">✕</button>
+            </div>
           )}
           <button className="btn btn-secondary" onClick={() => setShowImporter(true)} title="Importar álbum">
             {isMobile ? '↓' : '↓ Importar álbum'}
           </button>
           <AiLayoutButton
-            onTrigger={async (opts) => { await aiLayout.triggerAiLayout(opts); setShowAiProgress(true); }}
-            disabled={aiLayout.status === 'loading' || aiLayout.status === 'processing'}
+            aiLayout={aiLayout}
+            disabled={aiLayout.status === 'loading' || aiLayout.status === 'processing' || aiLayout.status === 'applying'}
             isMobile={isMobile}
           />
           <button
             className="btn btn-secondary"
             onClick={() => setShowThemePicker(true)}
-            title="Tema da storie"
-            style={{ padding: '7px 10px' }}
+            title="Tema da story"
+            style={{ padding: '6px 9px' }}
           >
-            🎨
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="8" r="6.5"/>
+              <circle cx="5.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+              <circle cx="10.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+              <circle cx="8" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+            </svg>
           </button>
           <button
             className="btn btn-secondary"
             onClick={() => setShowPasswordModal(true)}
             title="Password da story"
-            style={{ padding: '7px 10px' }}
+            style={{ padding: '6px 9px' }}
           >
-            🔒
+            <svg width="13" height="14" viewBox="0 0 13 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1.5" y="6.5" width="10" height="7.5" rx="2"/>
+              <path d="M4 6.5V4.5a2.5 2.5 0 015 0v2"/>
+            </svg>
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowContribs(true)}
+            title="Contribuições de viewers"
+            style={{ padding: '6px 9px', position: 'relative' }}
+          >
+            <svg width="16" height="13" viewBox="0 0 18 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="7" cy="4.5" r="3"/>
+              <path d="M1 13c0-3.3 2.7-5.5 6-5.5"/>
+              <circle cx="13.5" cy="4.5" r="2.5"/>
+              <path d="M11 13c0-2.5 1.6-4 4.5-4.5"/>
+            </svg>
+            {pendingContribs > 0 && (
+              <span style={{
+                position: 'absolute', top: 1, right: 1,
+                background: 'var(--mv-accent)', color: '#fff',
+                borderRadius: 99, fontSize: 8, fontWeight: 600,
+                minWidth: 13, height: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 2px', lineHeight: 1,
+              }}>
+                {pendingContribs}
+              </span>
+            )}
           </button>
           {story.published && !isMobile && (
             <a
@@ -294,13 +341,18 @@ export default function Editor() {
               Ver público ↗
             </a>
           )}
-          <button
-            className={`btn ${story.published ? 'btn-danger' : 'btn-primary'}`}
-            onClick={togglePublish}
-            disabled={saving}
-          >
-            {saving ? '…' : story.published ? 'Despublicar' : 'Publicar'}
-          </button>
+          {story.published ? (
+            <>
+              <span style={s.publishedBadge}>Publicado</span>
+              <button className="btn btn-ghost" onClick={togglePublish} disabled={saving} style={{ color: 'var(--ink-muted)', fontSize: 12 }}>
+                {saving ? '…' : 'Despublicar'}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-accent" onClick={togglePublish} disabled={saving}>
+              {saving ? '…' : 'Publicar'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -360,9 +412,16 @@ export default function Editor() {
 
           {blocks.length === 0 && (
             <div style={s.emptyPreview}>
-              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>+</div>
-              <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>
-                Clica em <strong>+</strong> para adicionar o primeiro bloco
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="var(--border-strong)" strokeWidth="1.5" strokeLinecap="round" style={{ marginBottom: 14, opacity: 0.7 }}>
+                <rect x="4" y="4" width="24" height="24" rx="4"/>
+                <line x1="16" y1="11" x2="16" y2="21"/>
+                <line x1="11" y1="16" x2="21" y2="16"/>
+              </svg>
+              <p style={{ fontSize: 14, fontWeight: 400, color: 'var(--ink-muted)', marginBottom: 4 }}>
+                Sem blocos ainda
+              </p>
+              <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--ink-faint)' }}>
+                Usa o <strong>+</strong> acima para adicionar o primeiro
               </p>
             </div>
           )}
@@ -425,14 +484,20 @@ export default function Editor() {
                 <button style={s.panelToggle} onClick={() => setRightOpen(false)} title="Fechar painel">›</button>
               </div>
               {selectedBlock ? (
-                <BlockEditor
-                  key={selectedBlock.id}
-                  block={selectedBlock}
-                  onChange={(content) => updateBlock(selectedBlock.id, content)}
-                />
+                <div style={{ padding: '0 16px 24px' }}>
+                  <BlockEditor
+                    key={selectedBlock.id}
+                    block={selectedBlock}
+                    onChange={(content) => updateBlock(selectedBlock.id, content)}
+                    storyId={id}
+                  />
+                </div>
               ) : (
                 <div style={s.propsEmpty}>
-                  <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.4 }}>⚙</div>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--border-strong)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10, opacity: 0.8 }}>
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                  </svg>
                   <p style={s.hint}>Selecciona um bloco para editar as propriedades</p>
                 </div>
               )}
@@ -452,14 +517,22 @@ export default function Editor() {
             style={{ ...s.mobileBarBtn, ...(leftOpen ? s.mobileBarBtnActive : {}) }}
             onClick={() => { setLeftOpen((o) => !o); setRightOpen(false); }}
           >
-            <span style={{ fontSize: 18 }}>☰</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
             <span>Blocos</span>
           </button>
           <button
             style={{ ...s.mobileBarBtn, ...(rightOpen ? s.mobileBarBtnActive : {}), opacity: selectedBlock ? 1 : 0.35 }}
             onClick={() => { if (selectedBlock) { setRightOpen((o) => !o); setLeftOpen(false); } }}
           >
-            <span style={{ fontSize: 18 }}>⚙</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            </svg>
             <span>Propriedades</span>
           </button>
         </nav>
@@ -469,25 +542,17 @@ export default function Editor() {
         <AlbumImporter storyId={id} onImported={handleImported} onClose={() => setShowImporter(false)} />
       )}
 
-      {showAiProgress && (
-        <AiProgressModal
-          status={aiLayout.status}
-          progress={aiLayout.progress}
-          processed={aiLayout.processed}
-          total={aiLayout.total}
-          blocksCreated={aiLayout.blocksCreated}
-          error={aiLayout.error}
-          onClose={() => { setShowAiProgress(false); aiLayout.reset(); }}
-          onRetry={() => { aiLayout.reset(); setShowAiProgress(false); }}
-        />
-      )}
 
       {showPasswordModal && (
         <PasswordModal
           storyId={id}
-          hasPassword={!!story.password_hash}
+          story={story}
           onClose={() => setShowPasswordModal(false)}
-          onSaved={(has) => setStory((s) => ({ ...s, password_hash: has ? 'set' : null }))}
+          onSaved={(updates) => setStory((s) => ({
+            ...s,
+            ...(updates.has_password !== undefined ? { password_hash: updates.has_password ? 'set' : null } : {}),
+            ...(updates.contributions_enabled !== undefined ? { contributions_enabled: updates.contributions_enabled ? 1 : 0 } : {}),
+          }))}
         />
       )}
 
@@ -508,14 +573,33 @@ export default function Editor() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {showContribs && (
+        <div style={s.overlay} onClick={() => setShowContribs(false)}>
+          <div style={{ ...s.modal, width: 480, maxWidth: '95vw', height: '70vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: 'var(--ink)' }}>Contribuições</h3>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--ink-faint)' }} onClick={() => setShowContribs(false)}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <ContributionsPanel
+                story={story}
+                onPendingCount={(n) => setPendingContribs(n)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
+function PasswordModal({ storyId, story, onClose, onSaved }) {
+  const hasPassword = !!story.password_hash;
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [contribEnabled, setContribEnabled] = useState(!!story.contributions_enabled);
 
   async function setPass(e) {
     e.preventDefault();
@@ -523,7 +607,7 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
     try {
       await api.post(`/api/stories/${storyId}/password`, { password: password || null });
       setMsg(password ? 'Password definida.' : 'Password removida.');
-      onSaved(!!password);
+      onSaved({ has_password: !!password, contributions_enabled: password ? contribEnabled : false });
       setTimeout(onClose, 1200);
     } finally {
       setSaving(false);
@@ -535,22 +619,33 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
     try {
       await api.post(`/api/stories/${storyId}/password`, { password: null });
       setMsg('Password removida.');
-      onSaved(false);
+      onSaved({ has_password: false, contributions_enabled: false });
       setTimeout(onClose, 1200);
     } finally {
       setSaving(false);
     }
   }
 
+  async function toggleContribs(enabled) {
+    setContribEnabled(enabled);
+    try {
+      await api.put(`/api/stories/${storyId}`, { contributions_enabled: enabled });
+      onSaved({ contributions_enabled: enabled });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao actualizar');
+      setContribEnabled(!enabled);
+    }
+  }
+
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>Password da story</h3>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>Password da story</h3>
+        <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', marginBottom: 20 }}>
           Protege o acesso ao viewer público com uma password.
         </p>
         {msg ? (
-          <p style={{ color: '#059669', background: '#f0fdf4', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{msg}</p>
+          <p style={{ color: 'var(--success)', background: 'var(--success-pale)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 300 }}>{msg}</p>
         ) : (
           <form onSubmit={setPass} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input
@@ -569,6 +664,22 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
             </div>
           </form>
         )}
+
+        {hasPassword && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '0.5px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }} onClick={() => toggleContribs(!contribEnabled)}>
+              <div style={{ width: 28, height: 16, borderRadius: 8, background: contribEnabled ? 'var(--mv-accent)' : 'var(--border-strong)', position: 'relative', transition: 'background 0.15s', flexShrink: 0, marginTop: 2 }}>
+                <div style={{ position: 'absolute', top: 2, left: 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'transform 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transform: contribEnabled ? 'translateX(12px)' : 'none' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink)', margin: 0 }}>Permitir contribuições</p>
+                <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)', margin: '2px 0 0' }}>
+                  Viewers desbloqueados podem enviar fotos e vídeos para revisão.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -577,38 +688,52 @@ function PasswordModal({ storyId, hasPassword, onClose, onSaved }) {
 const s = {
   shell: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' },
   topbar: {
-    height: 54,
-    background: 'var(--surface)',
-    borderBottom: '1px solid var(--border)',
+    height: 44,
+    background: 'var(--paper)',
+    borderBottom: '0.5px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
     padding: '0 12px 0 16px',
     gap: 8,
     flexShrink: 0,
+    zIndex: 10,
   },
-  topbarDivider: { width: 1, height: 20, background: 'var(--border)', margin: '0 4px' },
-  storyTitle: {
-    flex: 1,
-    fontWeight: 600,
-    fontSize: 14,
-    letterSpacing: '-0.01em',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: 'var(--text)',
+  topbarDivider: { width: 1, height: 20, background: 'var(--paper-deep)', margin: '0 4px' },
+  syncBadge: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '4px 8px 4px 10px',
+    background: 'var(--paper-warm)',
+    border: '0.5px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    flexShrink: 0,
+  },
+  syncDismiss: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    fontSize: 10, color: 'var(--ink-faint)', padding: '0 2px', lineHeight: 1,
+  },
+  publishedBadge: {
+    fontSize: 11, fontWeight: 400,
+    color: 'var(--ink-muted)',
+    padding: '4px 8px',
+    background: 'var(--paper-warm)',
+    border: '0.5px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    letterSpacing: '0.02em',
   },
   storyTitleBtn: {
     flex: 1, minWidth: 0,
-    fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em',
+    fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 300, fontSize: 16,
+    letterSpacing: '0.01em',
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-    color: 'var(--text)', background: 'none', border: 'none',
+    color: 'var(--ink)', background: 'none', border: 'none',
     cursor: 'pointer', textAlign: 'left', padding: '4px 6px',
     borderRadius: 'var(--radius-sm)', transition: 'background 0.12s',
   },
   topbarRight: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 },
   viewLink: {
-    fontSize: 13,
-    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 300,
+    color: 'var(--ink-muted)',
     textDecoration: 'none',
     padding: '6px 10px',
     borderRadius: 'var(--radius-sm)',
@@ -616,8 +741,8 @@ const s = {
   },
   body: { display: 'flex', flex: 1, overflow: 'hidden' },
   sidebar: {
-    background: 'var(--surface)',
-    borderRight: '1px solid var(--border)',
+    background: 'var(--ink)',
+    borderRight: 'none',
     display: 'flex',
     flexDirection: 'column',
     overflowX: 'hidden',
@@ -632,21 +757,21 @@ const s = {
     flexShrink: 0,
   },
   sidebarLabel: {
-    fontSize: 10,
-    color: 'var(--text-faint)',
+    fontSize: 9,
+    color: 'rgba(184,178,168,0.45)',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600,
+    letterSpacing: '0.1em',
+    fontWeight: 500,
     display: 'flex',
     alignItems: 'center',
     gap: 6,
   },
   blockCount: {
-    background: '#f3f4f6',
-    color: 'var(--text-muted)',
+    background: 'rgba(255,255,255,0.08)',
+    color: 'rgba(184,178,168,0.5)',
     padding: '1px 6px',
     borderRadius: 10,
-    fontWeight: 600,
+    fontWeight: 400,
     fontSize: 10,
   },
   panelToggle: {
@@ -654,7 +779,7 @@ const s = {
     height: 28,
     border: 'none',
     background: 'none',
-    color: 'var(--text-faint)',
+    color: 'rgba(184,178,168,0.5)',
     fontSize: 18,
     cursor: 'pointer',
     borderRadius: 'var(--radius-sm)',
@@ -674,7 +799,7 @@ const s = {
   },
   emptyPreview: {
     textAlign: 'center',
-    color: 'var(--text-muted)',
+    color: 'var(--ink-muted)',
     paddingTop: 60,
     fontSize: 14,
     lineHeight: 1.6,
@@ -686,10 +811,10 @@ const s = {
     cursor: 'pointer',
     transition: 'outline-color 0.1s',
   },
-  blockWrapperActive: { outline: '2px solid var(--accent)', outlineOffset: 2 },
+  blockWrapperActive: { outline: '2px solid var(--mv-accent)', outlineOffset: 2 },
   props: {
-    background: 'var(--surface)',
-    borderLeft: '1px solid var(--border)',
+    background: 'var(--paper)',
+    borderLeft: '0.5px solid var(--border)',
     overflowY: 'auto',
     overflowX: 'hidden',
     flexShrink: 0,
@@ -710,40 +835,40 @@ const s = {
     height: '80%',
     paddingBottom: 40,
   },
-  hint: { color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', lineHeight: 1.6 },
-  loading: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 15, color: 'var(--text-muted)' },
+  hint: { color: 'var(--ink-faint)', fontSize: 13, textAlign: 'center', lineHeight: 1.6 },
+  loading: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 15, color: 'var(--ink-muted)' },
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.45)',
+    background: 'rgba(26,24,20,0.45)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
-    backdropFilter: 'blur(2px)',
+    backdropFilter: 'blur(3px)',
   },
   modal: {
-    background: 'var(--surface)',
+    background: 'var(--paper)',
     borderRadius: 'var(--radius-lg)',
     padding: '28px 32px',
     width: 400,
     maxWidth: 'calc(100vw - 2rem)',
-    boxShadow: 'var(--shadow-lg)',
-    border: '1px solid var(--border)',
+    boxShadow: '0 24px 64px rgba(26,24,20,0.16)',
+    border: '0.5px solid var(--border)',
   },
   mobileBar: {
     position: 'fixed', bottom: 0, left: 0, right: 0,
-    height: 52, background: 'var(--surface)',
-    borderTop: '1px solid var(--border)',
+    height: 52, background: 'var(--paper)',
+    borderTop: '0.5px solid var(--border)',
     display: 'flex', zIndex: 60,
   },
   mobileBarBtn: {
     flex: 1, height: '100%', border: 'none',
     background: 'none', cursor: 'pointer',
-    fontSize: 10, color: 'var(--text-muted)',
+    fontSize: 10, color: 'var(--ink-muted)',
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
     gap: 2, transition: 'background 0.12s, color 0.12s',
   },
-  mobileBarBtnActive: { color: 'var(--accent)', background: 'var(--accent-soft, rgba(0,0,0,0.04))' },
+  mobileBarBtnActive: { color: 'var(--mv-accent)', background: 'var(--mv-accent-pale)' },
 };

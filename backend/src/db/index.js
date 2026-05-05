@@ -19,7 +19,13 @@ db.exec(schema);
 // Migrations — safe to run on every startup
 try { db.exec(`ALTER TABLE stories ADD COLUMN theme TEXT DEFAULT NULL`); } catch {}
 try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN title_pt TEXT DEFAULT ''`); } catch {}
-// New users require admin approval; existing users stay approved (DEFAULT 1)
 try { db.exec(`ALTER TABLE users ADD COLUMN approved INTEGER DEFAULT 1`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN people_json TEXT`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN tags_json TEXT`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN is_favorite INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN exif_rating INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE asset_ai_scores ADD COLUMN source TEXT DEFAULT 'gemini'`); } catch {}
+try { db.exec(`ALTER TABLE ai_jobs ADD COLUMN suggestions TEXT`); } catch {}
+try { db.exec(`ALTER TABLE stories ADD COLUMN contributions_enabled INTEGER NOT NULL DEFAULT 0`); } catch {}
 
 module.exports = db;

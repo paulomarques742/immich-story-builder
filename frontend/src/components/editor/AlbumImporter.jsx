@@ -3,6 +3,7 @@ import api from '../../lib/api.js';
 
 export default function AlbumImporter({ storyId, onImported, onClose }) {
   const [albums, setAlbums] = useState([]);
+  const [albumSearch, setAlbumSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -53,7 +54,7 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
 
         <div style={s.body}>
           <p style={s.desc}>
-            Selecciona um ou mais álbuns. Serão criados automaticamente blocos hero, grids de 3 e divisores por mês.
+            Selecciona um ou mais álbuns. A story é montada automaticamente: heros, grids dimensionados pela cadência das fotos, divisores por mês e por local. As fotos favoritas ganham destaque automático.
           </p>
 
           <label style={s.filterRow}>
@@ -61,11 +62,19 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
             Só álbuns partilhados
           </label>
 
+          <input
+            className="field"
+            style={s.searchInput}
+            placeholder="Pesquisar álbuns…"
+            value={albumSearch}
+            onChange={(e) => setAlbumSearch(e.target.value)}
+          />
+
           {loading && <p style={s.hint}>A carregar álbuns...</p>}
           {error && <p style={s.error}>{error}</p>}
 
           <div style={s.list}>
-            {albums.map((a) => (
+            {albums.filter((a) => a.albumName.toLowerCase().includes(albumSearch.toLowerCase())).map((a) => (
               <label key={a.id} style={s.item}>
                 <input
                   type="checkbox"
@@ -100,59 +109,63 @@ export default function AlbumImporter({ storyId, onImported, onClose }) {
 const s = {
   overlay: {
     position: 'fixed', inset: 0,
-    background: 'rgba(0,0,0,.5)',
+    background: 'rgba(26,24,20,0.45)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 300, backdropFilter: 'blur(2px)',
+    zIndex: 300, backdropFilter: 'blur(3px)',
   },
   modal: {
-    background: 'var(--surface)',
+    background: 'var(--paper)',
     borderRadius: 'var(--radius-lg)',
     width: 480, maxWidth: 'calc(100vw - 2rem)', maxHeight: '72vh',
     display: 'flex', flexDirection: 'column',
     boxShadow: 'var(--shadow-lg)',
-    border: '1px solid var(--border)',
+    border: '0.5px solid var(--border)',
     overflow: 'hidden',
   },
   header: {
-    padding: '16px 20px',
-    borderBottom: '1px solid var(--border)',
+    padding: '14px 20px',
+    borderBottom: '0.5px solid var(--border)',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     flexShrink: 0,
   },
-  title: { fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' },
+  title: { fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: 'var(--ink)' },
   closeBtn: {
     background: 'none', border: 'none',
     fontSize: 16, cursor: 'pointer',
-    color: 'var(--text-faint)',
+    color: 'var(--ink-faint)',
     width: 28, height: 28,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 'var(--radius-sm)',
   },
   body: { padding: '16px 20px', flex: 1, overflowY: 'auto' },
-  desc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 },
-  hint: { color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: '20px 0' },
+  desc: { fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', marginBottom: 14, lineHeight: 1.6 },
+  searchInput: { fontSize: 12, padding: '6px 10px', marginBottom: 14 },
+  hint: { color: 'var(--ink-faint)', fontSize: 13, fontWeight: 300, textAlign: 'center', padding: '20px 0' },
   error: {
-    color: 'var(--danger)', fontSize: 13, marginBottom: 8,
-    padding: '8px 12px', background: '#fef2f2', borderRadius: 'var(--radius-sm)',
+    color: 'var(--danger)', fontSize: 13, fontWeight: 300, marginBottom: 8,
+    padding: '8px 12px',
+    background: 'rgba(176,80,80,0.06)',
+    border: '0.5px solid rgba(176,80,80,0.2)',
+    borderRadius: 'var(--radius-sm)',
   },
   list: { display: 'flex', flexDirection: 'column', gap: 1 },
   item: {
     display: 'flex', alignItems: 'center', gap: 10,
     padding: '9px 10px', borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer', fontSize: 14,
+    cursor: 'pointer', fontSize: 13,
     transition: 'background 0.1s',
   },
-  albumName: { flex: 1, fontWeight: 500, fontSize: 13 },
-  albumCount: { fontSize: 12, color: 'var(--text-faint)' },
+  albumName: { flex: 1, fontWeight: 400, fontSize: 13, color: 'var(--ink-soft)' },
+  albumCount: { fontSize: 12, fontWeight: 300, color: 'var(--ink-faint)' },
   filterRow: {
     display: 'flex', alignItems: 'center', gap: 7,
-    fontSize: 12, color: 'var(--text-muted)',
+    fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)',
     marginBottom: 14, cursor: 'pointer',
-    fontWeight: 500,
   },
   footer: {
     padding: '12px 20px',
-    borderTop: '1px solid var(--border)',
+    borderTop: '0.5px solid var(--border)',
+    background: 'var(--paper-warm)',
     display: 'flex', gap: 8, justifyContent: 'flex-end',
     flexShrink: 0,
   },

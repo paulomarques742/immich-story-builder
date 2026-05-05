@@ -10,6 +10,7 @@ import ViewerFooter from '../components/viewer/ViewerFooter.jsx';
 import GlobalComments from '../components/viewer/GlobalComments.jsx';
 import PeopleFilter from '../components/viewer/PeopleFilter.jsx';
 import { buildThemeVars, getTheme } from '../lib/themes.js';
+import ContributionUploadModal from '../components/viewer/ContributionUploadModal.jsx';
 
 function parse(block) {
   try { return typeof block.content === 'string' ? JSON.parse(block.content) : block.content; }
@@ -61,6 +62,7 @@ export default function Viewer() {
   const [selectedPersonIds, setSelectedPersonIds] = useState(new Set());
   const [personAssetIds, setPersonAssetIds] = useState(new Set());
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [showContribModal, setShowContribModal] = useState(false);
   const [counts, setCounts] = useState({ likes: {}, comments: {} });
   const [likedByMe, setLikedByMe] = useState({});
   const [fingerprint, setFingerprint] = useState('');
@@ -318,6 +320,31 @@ export default function Viewer() {
 
       {/* Footer */}
       <ViewerFooter story={story} photoCount={photoCount} />
+
+      {/* Contribution FAB — only when contributions are enabled and story is unlocked */}
+      {story.contributions_enabled && storyToken() && (
+        <button
+          onClick={() => setShowContribModal(true)}
+          title="Contribuir com uma foto ou vídeo"
+          style={{
+            position: 'fixed', bottom: 28, right: 28, zIndex: 400,
+            background: '#1a1a1a', color: '#fff', border: 'none',
+            borderRadius: 50, width: 52, height: 52, fontSize: 28, lineHeight: 1,
+            cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          +
+        </button>
+      )}
+
+      {showContribModal && (
+        <ContributionUploadModal
+          slug={slug}
+          storyToken={storyToken()}
+          onClose={() => setShowContribModal(false)}
+        />
+      )}
 
       {/* Lightbox */}
       {lightboxIndex !== null && (

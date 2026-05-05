@@ -61,51 +61,59 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!window.confirm('Tens a certeza que queres eliminar esta story? Esta ação é irreversível.')) return;
     await api.delete(`/api/stories/${id}`);
-    setStories((list) => list.filter((s) => s.id !== id));
+    setStories((list) => list.filter((st) => st.id !== id));
   }
 
   return (
     <div style={s.page}>
-      <header style={s.header}>
+      <header style={s.header} className="dashboard-header">
         <div style={s.headerLeft}>
-          <div style={s.logoMark}>M</div>
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="#faf8f5" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="7" height="10" rx="0.5"/>
+            <rect x="11" y="2" width="7" height="6" rx="0.5" opacity="0.55"/>
+            <rect x="11" y="10" width="7" height="8" rx="0.5" opacity="0.35"/>
+            <rect x="2" y="14" width="7" height="4" rx="0.5" opacity="0.25"/>
+          </svg>
           <span style={s.logoText}>Memoire</span>
         </div>
         <div style={s.headerRight}>
-          <span style={s.userEmail}>{user.email}</span>
+          <span style={s.navLink}>{user.email}</span>
           {user.role === 'admin' && (
-            <button className="btn btn-ghost" onClick={() => setShowUsers((v) => !v)} style={{ position: 'relative' }}>
+            <button style={{ ...s.navLink, cursor: 'pointer', background: 'none', border: 'none', position: 'relative' }} onClick={() => setShowUsers((v) => !v)}>
               Utilizadores
               {pendingCount > 0 && (
-                <span style={s.badge}>{pendingCount}</span>
+                <span style={s.navBadge}>{pendingCount}</span>
               )}
             </button>
           )}
-          <button className="btn btn-ghost" onClick={logout}>Sair</button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nova Story</button>
+          <button style={{ ...s.navLink, cursor: 'pointer', background: 'none', border: 'none' }} onClick={logout}>Sair</button>
+          <button className="btn btn-accent" onClick={() => setShowModal(true)}>+ Nova Story</button>
         </div>
       </header>
 
-      <main style={s.main}>
+      <main style={s.body} className="dashboard-body">
         {showUsers && user.role === 'admin' && (
           <div style={s.usersPanel}>
             <h3 style={s.usersPanelTitle}>Utilizadores</h3>
-            {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhum utilizador registado.</p>}
+            {users.length === 0 && <p style={{ fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)' }}>Nenhum utilizador registado.</p>}
             {users.map((u) => (
               <div key={u.id} style={s.userRow}>
                 <div style={{ minWidth: 0 }}>
-                  <p style={s.userName}>{u.name} <span style={{ ...s.rolePill, ...(u.role === 'admin' ? s.roleAdmin : s.roleEditor) }}>{u.role}</span></p>
+                  <p style={s.userName}>
+                    {u.name}
+                    <span style={{ ...s.rolePill, ...(u.role === 'admin' ? s.roleAdmin : s.roleEditor) }}>{u.role}</span>
+                  </p>
                   <p style={s.userEmail2}>{u.email}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   {!u.approved && (
-                    <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 12px' }} onClick={() => approveUser(u.id)}>
+                    <button className="btn btn-accent" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => approveUser(u.id)}>
                       Aprovar
                     </button>
                   )}
                   {u.approved && <span style={s.approvedBadge}>Aprovado</span>}
                   {u.id !== user.id && (
-                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px', color: 'var(--danger)' }} onClick={() => deleteUser(u.id)}>
+                    <button className="btn btn-danger" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => deleteUser(u.id)}>
                       Remover
                     </button>
                   )}
@@ -115,7 +123,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div style={s.pageHeader}>
+        <div style={s.titleRow}>
           <h2 style={s.pageTitle}>As tuas stories</h2>
           {!loading && stories.length > 0 && (
             <span style={s.storyCount}>{stories.length} {stories.length === 1 ? 'story' : 'stories'}</span>
@@ -123,62 +131,67 @@ export default function Dashboard() {
         </div>
 
         {loading && (
-          <div style={s.loadingRow}>
+          <div style={s.grid} className="dashboard-grid">
             {[1,2,3].map((i) => <div key={i} style={s.skeleton} />)}
           </div>
         )}
 
         {!loading && stories.length === 0 && (
           <div style={s.empty}>
-            <div style={s.emptyIcon}>📖</div>
+            <div style={s.emptyIcon}>
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="var(--border-strong)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="6" width="20" height="26" rx="3"/>
+                <path d="M10 12h8M10 17h8M10 22h5"/>
+                <path d="M26 14l6 6-6 6"/>
+              </svg>
+            </div>
             <p style={s.emptyTitle}>Ainda sem stories</p>
             <p style={s.emptyHint}>Cria a tua primeira story e transforma os teus álbuns Immich em timelines narrativas.</p>
-            <button className="btn btn-primary btn-lg" onClick={() => setShowModal(true)}>Criar primeira story</button>
+            <button className="btn btn-accent btn-lg" onClick={() => setShowModal(true)}>Criar primeira story</button>
           </div>
         )}
 
-        <div style={s.grid}>
+        <div style={s.grid} className="dashboard-grid">
           {stories.map((story) => {
             const thumbAsset = story.cover_asset_id || story.hero_asset_id;
             return (
               <div
                 key={story.id}
-                className="card"
                 style={s.card}
                 onClick={() => navigate(`/editor/${story.id}`)}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(26,24,20,0.11)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 4px rgba(26,24,20,0.06)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
               >
                 <div style={s.cardThumb}>
                   {thumbAsset
-                    ? <img src={thumbUrl(thumbAsset, 'preview')} alt="" style={s.cardImg} />
-                    : <div style={s.cardPlaceholder}><span style={s.placeholderIcon}>🌄</span></div>
+                    ? <img src={thumbUrl(thumbAsset, 'preview')} alt="" style={s.cardThumbImg} />
+                    : <div style={s.cardThumbEmpty} />
                   }
                   <div style={s.cardBadge}>
                     <span style={{ ...s.badge, ...(story.published ? s.badgePublished : s.badgeDraft) }}>
                       {story.published ? 'Publicado' : 'Rascunho'}
                     </span>
                     {story.pending_sync > 0 && (
-                      <span style={s.badgeSync}>{story.pending_sync} novas</span>
+                      <span style={s.badgeNew}>{story.pending_sync} novas</span>
                     )}
                   </div>
                 </div>
                 <div style={s.cardBody}>
                   <p style={s.cardTitle}>{story.title}</p>
                   <div style={s.cardFooter}>
-                    <p style={s.cardSlug}>/{story.slug}</p>
-                    <button
-                      style={s.settingsBtn}
-                      title="Definições da story"
-                      onClick={(e) => { e.stopPropagation(); setEditingStory(story); }}
-                    >
-                      ⚙
-                    </button>
-                    <button
-                      style={s.trashBtn}
-                      title="Eliminar story"
-                      onClick={(e) => deleteStory(e, story.id)}
-                    >
-                      🗑
-                    </button>
+                    <p style={s.cardSlug} className="card-slug">/{story.slug}</p>
+                    <div style={s.cardActions}>
+                      <button
+                        style={s.iconBtn}
+                        title="Definições da story"
+                        onClick={(e) => { e.stopPropagation(); setEditingStory(story); }}
+                      >⚙</button>
+                      <button
+                        style={s.iconBtn}
+                        title="Eliminar story"
+                        onClick={(e) => deleteStory(e, story.id)}
+                      >🗑</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -191,7 +204,7 @@ export default function Dashboard() {
         <StorySettingsModal
           storyId={editingStory.id}
           story={editingStory}
-          onSaved={(updated) => setStories((list) => list.map((s) => s.id === updated.id ? { ...s, ...updated } : s))}
+          onSaved={(updated) => setStories((list) => list.map((st) => st.id === updated.id ? { ...st, ...updated } : st))}
           onClose={() => setEditingStory(null)}
         />
       )}
@@ -204,7 +217,6 @@ export default function Dashboard() {
             <form onSubmit={createStory} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
               <input
                 className="field"
-                style={{ fontSize: 14, padding: '10px 13px' }}
                 placeholder="Ex: Viagem à Islândia 2024"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
@@ -226,41 +238,18 @@ export default function Dashboard() {
 }
 
 const s = {
-  page: { minHeight: '100vh', background: 'var(--bg)' },
-  badge: {
-    position: 'absolute', top: 4, right: 4,
-    background: 'var(--danger)', color: '#fff',
-    borderRadius: 99, fontSize: 10, fontWeight: 700,
-    minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '0 4px',
+  /* ── layout ── */
+  page: {
+    minHeight: '100vh',
+    background: 'var(--bg)',
+    fontFamily: 'var(--font-body)',
   },
-  usersPanel: {
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-lg)',
-    padding: '20px 24px',
-    marginBottom: 32,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  usersPanelTitle: { fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 },
-  userRow: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-    padding: '10px 0',
-    borderTop: '1px solid var(--border)',
-  },
-  userName: { fontSize: 14, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 },
-  userEmail2: { fontSize: 12, color: 'var(--text-muted)', marginTop: 2 },
-  rolePill: { fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 99 },
-  roleAdmin: { background: 'rgba(99,102,241,0.1)', color: '#6366f1' },
-  roleEditor: { background: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)' },
-  approvedBadge: { fontSize: 12, color: 'var(--success, #059669)', fontWeight: 500, padding: '4px 10px' },
+
+  /* ── navbar ── */
   header: {
-    background: 'var(--surface)',
-    borderBottom: '1px solid var(--border)',
+    background: 'var(--ink)',
     padding: '0 32px',
-    height: 58,
+    height: 50,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -268,28 +257,109 @@ const s = {
     top: 0,
     zIndex: 10,
   },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
-  logoMark: {
-    width: 28,
-    height: 28,
-    background: 'var(--accent)',
-    color: '#fff',
-    borderRadius: 7,
+  headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 13,
-    fontWeight: 700,
+    gap: 9,
   },
-  logoText: { fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em' },
-  headerRight: { display: 'flex', gap: 8, alignItems: 'center' },
-  userEmail: { fontSize: 13, color: 'var(--text-muted)', marginRight: 4 },
-  main: { maxWidth: 1120, margin: '0 auto', padding: '40px 32px' },
-  pageHeader: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 28 },
-  pageTitle: { fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em' },
-  storyCount: { fontSize: 13, color: 'var(--text-faint)', fontWeight: 500 },
-  loadingRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 },
-  skeleton: { height: 260, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' },
+  logoText: {
+    fontFamily: 'var(--font-display)',
+    fontSize: 17,
+    fontWeight: 400,
+    letterSpacing: '0.02em',
+    color: 'var(--paper)',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+  },
+  navLink: {
+    fontSize: 12,
+    fontWeight: 300,
+    color: 'var(--ink-faint)',
+    letterSpacing: '0.01em',
+  },
+  navBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    background: 'var(--mv-accent)',
+    color: '#fff',
+    borderRadius: 99,
+    fontSize: 9,
+    fontWeight: 500,
+    minWidth: 14,
+    height: 14,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 3px',
+  },
+
+  /* ── page body ── */
+  body: {
+    padding: '36px 32px',
+    maxWidth: 1200,
+    margin: '0 auto',
+  },
+  titleRow: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 10,
+    marginBottom: 28,
+  },
+  pageTitle: {
+    fontFamily: 'var(--font-body)',
+    fontSize: 22,
+    fontWeight: 600,
+    color: 'var(--ink)',
+    letterSpacing: '-0.02em',
+    lineHeight: 1.2,
+  },
+  storyCount: {
+    fontSize: 12,
+    fontWeight: 300,
+    color: 'var(--ink-muted)',
+    letterSpacing: '0.04em',
+  },
+
+  /* ── users panel ── */
+  usersPanel: {
+    background: 'var(--paper)',
+    border: '0.5px solid var(--border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: '20px 24px',
+    marginBottom: 32,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  usersPanelTitle: { fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--ink)', marginBottom: 4 },
+  userRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    padding: '10px 0',
+    borderTop: '0.5px solid var(--border)',
+  },
+  userName: { fontSize: 13, fontWeight: 400, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6 },
+  userEmail2: { fontSize: 11, fontWeight: 300, color: 'var(--ink-muted)', marginTop: 2 },
+  rolePill: { fontSize: 10, fontWeight: 400, padding: '2px 7px', borderRadius: 99 },
+  roleAdmin: { background: 'rgba(99,102,241,0.1)', color: '#6366f1' },
+  roleEditor: { background: 'var(--paper-deep)', color: 'var(--ink-muted)' },
+  approvedBadge: { fontSize: 11, fontWeight: 300, color: 'var(--success)', padding: '4px 10px' },
+
+  /* ── cards grid ── */
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: 16,
+  },
+  skeleton: {
+    height: 260,
+    borderRadius: 'var(--radius)',
+    background: 'linear-gradient(90deg,var(--paper-warm) 25%,var(--paper-deep) 50%,var(--paper-warm) 75%)',
+    backgroundSize: '200% 100%',
+  },
   empty: {
     textAlign: 'center',
     padding: '80px 0',
@@ -298,74 +368,144 @@ const s = {
     gap: 12,
     alignItems: 'center',
   },
-  emptyIcon: { fontSize: 40, marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' },
-  emptyHint: { fontSize: 14, color: 'var(--text-muted)', maxWidth: 380, lineHeight: 1.6, marginBottom: 8 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 },
+  emptyIcon: { fontSize: 36, marginBottom: 12, display: 'flex', justifyContent: 'center' },
+  emptyTitle: { fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 500, color: 'var(--ink)' },
+  emptyHint: { fontSize: 13, fontWeight: 300, color: 'var(--ink-muted)', maxWidth: 380, lineHeight: 1.6, marginBottom: 8 },
   card: {
-    cursor: 'pointer',
+    background: 'var(--paper)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
     overflow: 'hidden',
-    borderRadius: 'var(--radius-lg)',
-    border: '1px solid var(--border)',
-    background: 'var(--surface)',
-    boxShadow: 'var(--shadow-xs)',
-    transition: 'box-shadow 0.15s, border-color 0.15s, transform 0.15s',
-  },
-  cardThumb: { height: 168, background: '#f3f4f6', position: 'relative', overflow: 'hidden' },
-  cardImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.3s' },
-  cardPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)' },
-  placeholderIcon: { fontSize: 28, opacity: 0.4 },
-  cardBadge: { position: 'absolute', top: 10, left: 10, display: 'flex', gap: 5 },
-  badge: { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20 },
-  badgePublished: { background: 'rgba(16,185,129,0.12)', color: '#059669' },
-  badgeDraft: { background: 'rgba(0,0,0,0.08)', color: '#6b7280' },
-  badgeSync: { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: 'rgba(234,88,12,0.12)', color: '#ea580c' },
-  cardBody: { padding: '14px 16px 16px' },
-  cardTitle: { fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', marginBottom: 6, color: 'var(--text)' },
-  cardFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-  cardSlug: { fontSize: 12, color: 'var(--text-faint)', fontFamily: 'monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  settingsBtn: {
-    flexShrink: 0,
-    width: 28, height: 28,
-    border: '1px solid var(--border)',
-    background: 'var(--bg)',
-    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
+    transition: 'transform 0.18s, box-shadow 0.18s, border-color 0.18s',
+    boxShadow: '0 1px 4px rgba(26,24,20,0.06)',
+  },
+  cardThumb: {
+    height: 160,
+    background: 'var(--paper-warm)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardThumbEmpty: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, var(--paper-warm), var(--paper-deep))',
+  },
+  cardThumbImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+
+  /* ── badges ── */
+  cardBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    display: 'flex',
+    gap: 5,
+  },
+  badge: {
+    fontSize: 10,
+    fontWeight: 400,
+    fontFamily: 'var(--font-body)',
+    padding: '2px 8px',
+    borderRadius: 2,
+    letterSpacing: '0.04em',
+    lineHeight: 1.6,
+  },
+  badgePublished: {
+    background: 'var(--success-pale)',
+    color: 'var(--success)',
+    border: '0.5px solid rgba(90,138,106,0.25)',
+  },
+  badgeDraft: {
+    background: 'rgba(250,248,245,0.92)',
+    color: 'var(--ink-muted)',
+    border: '0.5px solid rgba(26,24,20,0.12)',
+    backdropFilter: 'blur(4px)',
+  },
+  badgeNew: {
+    background: 'var(--mv-accent-pale)',
+    color: 'var(--mv-accent)',
+    border: '0.5px solid rgba(196,121,90,0.25)',
+    fontSize: 10,
+    fontWeight: 400,
+    fontFamily: 'var(--font-body)',
+    padding: '2px 8px',
+    borderRadius: 2,
+    letterSpacing: '0.04em',
+    lineHeight: 1.6,
+  },
+
+  /* ── card body ── */
+  cardBody: {
+    padding: '12px 14px 14px',
+  },
+  cardTitle: {
+    fontFamily: 'var(--font-body)',
     fontSize: 14,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--text-muted)',
-    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+    fontWeight: 500,
+    color: 'var(--ink)',
+    marginBottom: 6,
+    letterSpacing: '-0.01em',
   },
-  trashBtn: {
+  cardFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardSlug: {
+    fontSize: 11,
+    fontWeight: 300,
+    color: 'var(--ink-faint)',
+    fontFamily: 'monospace',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0,
+  },
+  cardActions: {
+    display: 'flex',
+    gap: 4,
     flexShrink: 0,
-    width: 28, height: 28,
-    border: '1px solid var(--border)',
-    background: 'var(--bg)',
-    borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer',
-    fontSize: 13,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--text-muted)',
-    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
   },
+  iconBtn: {
+    width: 26,
+    height: 26,
+    border: '0.5px solid var(--border)',
+    borderRadius: 3,
+    background: 'var(--paper-warm)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: 'var(--ink-muted)',
+    fontSize: 13,
+    transition: 'background 0.12s, color 0.12s',
+  },
+
+  /* ── modal ── */
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.4)',
+    background: 'rgba(26,24,20,0.5)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
-    backdropFilter: 'blur(2px)',
+    backdropFilter: 'blur(3px)',
   },
   modal: {
-    background: 'var(--surface)',
+    background: 'var(--paper)',
     borderRadius: 'var(--radius-lg)',
     padding: '28px 32px',
     width: 420,
+    maxWidth: 'calc(100vw - 2rem)',
     boxShadow: 'var(--shadow-lg)',
-    border: '1px solid var(--border)',
+    border: '0.5px solid var(--border)',
   },
-  modalTitle: { fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' },
-  modalHint: { fontSize: 13, color: 'var(--text-muted)', marginTop: 4 },
+  modalTitle: { fontFamily: 'var(--font-display)', fontSize: 21, fontWeight: 500, color: 'var(--ink)', marginBottom: 4 },
+  modalHint: { fontSize: 12, fontWeight: 300, color: 'var(--ink-muted)', marginTop: 4 },
 };

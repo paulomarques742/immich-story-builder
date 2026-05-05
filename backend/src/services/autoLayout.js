@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
-const { analyseAlbumBatch, generateNarrative } = require('./gemini');
+const { generateNarrative, generateCaption, generateStoryConcepts } = require('./gemini');
+const { scoreFromImmichData, buildAlbumSummary, selectRepresentativeAssets } = require('./immichMetadata');
 
 // ── Geo helpers ───────────────────────────────────────────────────
 
@@ -408,61 +409,226 @@ async function generateBlocksFromGroups(groups, language, fetchThumbFn) {
   return rawBlocks.map((b, i) => ({ ...b, position: i }));
 }
 
+// ── Shared asset fetching ─────────────────────────────────────────
+
+async function fetchAlbumAssets(albumIds, immichClient) {
+  let assets = [];
+  for (const albumId of albumIds) {
+    const res = await immichClient.get(`/albums/${albumId}`);
+    assets.push(...(res.data.assets || []));
+  }
+  const seen = new Set();
+  return assets.filter((a) => { if (seen.has(a.id)) return false; seen.add(a.id); return true; });
+}
+
+function makeFetchThumb(immichClient) {
+  return async (assetId) => {
+    const res = await immichClient.get(`/assets/${assetId}/thumbnail`, {
+      params: { size: 'preview' },
+      responseType: 'arraybuffer',
+    });
+    return Buffer.from(res.data).toString('base64');
+  };
+}
+
+// ── Immich-based scoring (no Gemini per photo) ────────────────────
+
+function scoreAssetsFromImmich(assets, db) {
+  const cacheStmt = db.prepare("SELECT * FROM asset_ai_scores WHERE asset_id = ? AND analysed_at > datetime('now', '-30 days')");
+  const insertCache = db.prepare(`
+    INSERT OR REPLACE INTO asset_ai_scores
+      (asset_id, score, theme, mood, is_hero, subject, suggested_caption, title_pt,
+       city, country, lat, lng, people_json, tags_json, is_favorite, exif_rating, source, analysed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `);
+
+  return assets.map((asset) => {
+    const cached = cacheStmt.get(asset.id);
+    if (cached) {
+      return {
+        asset,
+        score: { ...cached, caption_pt: cached.suggested_caption || '' },
+        assetType: asset.type || 'IMAGE',
+      };
+    }
+
+    const s = scoreFromImmichData(asset);
+
+    insertCache.run(
+      asset.id, s.score, s.theme, s.mood,
+      s.is_hero ? 1 : 0, s.subject, s.suggested_caption, s.title_pt,
+      s.city, s.country, s.lat, s.lng,
+      s.people_json, s.tags_json, s.is_favorite, s.exif_rating, s.source,
+    );
+
+    return { asset, score: { ...s, caption_pt: '' }, assetType: asset.type || 'IMAGE' };
+  });
+}
+
+// ── Caption generation for featured photos only ───────────────────
+
+async function addCaptionsToFeatured(groups, fetchThumbFn) {
+  if (!process.env.GEMINI_API_KEY) return;
+
+  const allImages = groups.flatMap((g) => g.items).filter((a) => a.assetType !== 'VIDEO');
+  if (!allImages.length) return;
+
+  const bestOverall = allImages.reduce((b, c) => (c.score.score > b.score.score ? c : b));
+  const featured = new Map([[bestOverall.asset.id, bestOverall]]);
+
+  for (const group of groups) {
+    const best = topAssets(group, 1)[0];
+    if (best) featured.set(best.asset.id, best);
+  }
+
+  await Promise.all([...featured.values()].map(async (item) => {
+    const thumb = await fetchThumbFn(item.asset.id).catch(() => null);
+    if (!thumb) return;
+
+    const people = JSON.parse(item.score.people_json || '[]').map((p) => p.name).filter(Boolean);
+    const caption = await generateCaption(thumb, 'image/jpeg', {
+      city: item.score.city,
+      country: item.score.country,
+      date: item.asset.fileCreatedAt,
+      people,
+    });
+    item.score.suggested_caption = caption;
+    item.score.caption_pt = caption;
+  }));
+}
+
 // ── Main orchestrator ─────────────────────────────────────────────
 
-async function runAutoLayout(storyId, albumIds, language, replaceExisting, db, immichClient) {
+/**
+ * Phase 1: analyse album, score via Immich metadata, generate 3 story concepts with Gemini.
+ * Stores concepts in the job record; sets status='suggestions_ready'.
+ */
+async function generateSuggestions(jobId, storyId, albumIds, language, db, immichClient) {
+  const updateJob = db.prepare(`
+    UPDATE ai_jobs SET status=?, progress=?, processed=?, total=?, suggestions=?, error=?, updated_at=CURRENT_TIMESTAMP
+    WHERE id=?
+  `);
+
+  try {
+    updateJob.run('processing', 5, 0, 0, null, null, jobId);
+
+    const assets = await fetchAlbumAssets(albumIds, immichClient);
+    updateJob.run('processing', 15, assets.length, assets.length, null, null, jobId);
+
+    const scored = scoreAssetsFromImmich(assets, db);
+    updateJob.run('processing', 40, assets.length, assets.length, null, null, jobId);
+
+    const albumSummary = buildAlbumSummary(assets);
+
+    // Build 3 layout candidates (one per main strategy)
+    const allStrategies = ['location', 'day', 'theme'];
+    const groupsByStrategy = {};
+    for (const strat of allStrategies) {
+      switch (strat) {
+        case 'location': groupsByStrategy[strat] = groupByLocation(scored); break;
+        case 'day':      groupsByStrategy[strat] = groupByDay(scored); break;
+        default:         groupsByStrategy[strat] = groupByThemePure(chronoSort(scored)); break;
+      }
+    }
+
+    // Pick representative assets and fetch thumbnails for Gemini
+    const representatives = selectRepresentativeAssets(assets, 10);
+    const fetchThumb = makeFetchThumb(immichClient);
+    updateJob.run('processing', 50, assets.length, assets.length, null, null, jobId);
+
+    const thumbs = await Promise.all(
+      representatives.map((a) => fetchThumb(a.id).catch(() => null))
+    ).then((arr) => arr.filter(Boolean));
+
+    updateJob.run('processing', 65, assets.length, assets.length, null, null, jobId);
+
+    // Ask Gemini to generate 3 story concepts (1 call total)
+    const geminiConcepts = await generateStoryConcepts(albumSummary, thumbs);
+    updateJob.run('processing', 85, assets.length, assets.length, null, null, jobId);
+
+    // Find the best hero candidate for each strategy to send as preview
+    const bestAssetForStrategy = (strategy) => {
+      const grps = groupsByStrategy[strategy];
+      if (!grps?.length) return null;
+      const allItems = grps.flatMap((g) => g.items).filter((a) => a.assetType !== 'VIDEO');
+      if (!allItems.length) return null;
+      return allItems.reduce((b, c) => (c.score.score > b.score.score ? c : b));
+    };
+
+    const autoStrategy = chooseStrategy(scored);
+
+    // Merge Gemini creative titles with pre-computed grouping
+    const suggestions = allStrategies.map((strategy, i) => {
+      const gemini = geminiConcepts[i] || {};
+      const best = bestAssetForStrategy(strategy);
+      return {
+        strategy,
+        title_pt: gemini.title_pt || strategyDefaultTitle(strategy, albumSummary, language),
+        description_pt: gemini.description_pt || '',
+        tone: gemini.tone || '',
+        hero_asset_id: best?.asset.id || null,
+        album_ids: albumIds,
+        language,
+        is_recommended: strategy === autoStrategy,
+      };
+    });
+
+    const suggestionsJson = JSON.stringify(suggestions);
+    db.prepare(`UPDATE ai_jobs SET status='suggestions_ready', progress=100, suggestions=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(suggestionsJson, jobId);
+  } catch (err) {
+    db.prepare(`UPDATE ai_jobs SET status='error', error=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(err.message || 'Unknown error', jobId);
+  }
+}
+
+function strategyDefaultTitle(strategy, summary, language) {
+  const city = summary.cities[0] || '';
+  switch (strategy) {
+    case 'location': return city ? `Viagem por ${city}` : 'Viagem por localizações';
+    case 'day': return summary.dateRange ? `${summary.dateRange.from} a ${summary.dateRange.to}` : 'Dia a dia';
+    default: return 'História por temas';
+  }
+}
+
+/**
+ * Phase 2: execute a selected suggestion — build and insert blocks.
+ * `suggestionData` comes from the suggestions JSON stored in the suggestions job.
+ */
+async function runAutoLayout(jobId, storyId, suggestionData, replaceExisting, db, immichClient) {
   const updateJob = db.prepare(`
     UPDATE ai_jobs SET status=?, progress=?, processed=?, total=?, blocks_created=?, error=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?
   `);
 
-  const job = db.prepare(`SELECT id FROM ai_jobs WHERE story_id=? ORDER BY created_at DESC LIMIT 1`).get(storyId);
-  if (!job) return;
-  const jobId = job.id;
-
   try {
-    let assets = [];
-    for (const albumId of albumIds) {
-      const res = await immichClient.get(`/albums/${albumId}`);
-      assets.push(...(res.data.assets || []));
+    updateJob.run('processing', 5, 0, 0, 0, null, jobId);
+
+    const { album_ids: albumIds, language = 'pt', strategy } = suggestionData;
+
+    const assets = await fetchAlbumAssets(albumIds, immichClient);
+    updateJob.run('processing', 15, assets.length, assets.length, 0, null, jobId);
+
+    const scored = scoreAssetsFromImmich(assets, db);
+    updateJob.run('processing', 40, assets.length, assets.length, 0, null, jobId);
+
+    let groups;
+    switch (strategy) {
+      case 'location':   groups = groupByLocation(scored); break;
+      case 'day':        groups = groupByDay(scored); break;
+      case 'by_person':  groups = groupByLocation(scored); break; // fallback: location
+      default:           groups = groupByThemePure(chronoSort(scored)); break;
     }
-    const seen = new Set();
-    assets = assets.filter((a) => { if (seen.has(a.id)) return false; seen.add(a.id); return true; });
 
-    updateJob.run('processing', 0, 0, assets.length, 0, null, jobId);
+    updateJob.run('processing', 50, assets.length, assets.length, 0, null, jobId);
 
-    const fetchThumbFn = async (assetId) => {
-      const res = await immichClient.get(`/assets/${assetId}/thumbnail`, {
-        params: { size: 'preview' },
-        responseType: 'arraybuffer',
-      });
-      return Buffer.from(res.data).toString('base64');
-    };
+    const fetchThumb = makeFetchThumb(immichClient);
 
-    const fetchExifFn = async (assetId) => {
-      const res = await immichClient.get(`/assets/${assetId}`);
-      const exif = res.data.exifInfo || {};
-      return {
-        lat: exif.latitude ?? null,
-        lng: exif.longitude ?? null,
-        city: exif.city ?? null,
-        country: exif.country ?? null,
-      };
-    };
+    // Generate captions only for hero + best per group (~5-15 calls)
+    await addCaptionsToFeatured(groups, fetchThumb);
+    updateJob.run('processing', 75, assets.length, assets.length, 0, null, jobId);
 
-    const scored = await analyseAlbumBatch(assets, fetchThumbFn, fetchExifFn, (processed, total) => {
-      const progress = Math.round((processed / total) * 80);
-      updateJob.run('processing', progress, processed, total, 0, null, jobId);
-    }, db);
-
-    updateJob.run('processing', 82, assets.length, assets.length, 0, null, jobId);
-
-    const groups = groupAssets(scored);
-
-    updateJob.run('processing', 85, assets.length, assets.length, 0, null, jobId);
-
-    const blocksList = await generateBlocksFromGroups(groups, language, fetchThumbFn);
-
+    const blocksList = await generateBlocksFromGroups(groups, language, fetchThumb);
     updateJob.run('processing', 95, assets.length, assets.length, 0, null, jobId);
 
     db.transaction(() => {
@@ -490,4 +656,4 @@ async function runAutoLayout(storyId, albumIds, language, replaceExisting, db, i
   }
 }
 
-module.exports = { runAutoLayout };
+module.exports = { runAutoLayout, generateSuggestions };
