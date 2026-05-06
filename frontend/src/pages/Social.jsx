@@ -94,9 +94,9 @@ export default function Social() {
   }
 
   const tabs = [
-    { key: 'feed', label: 'Actividade', count: feed.length },
-    { key: 'elements', label: 'Por elemento', count: assets.length },
-    { key: 'ranking', label: 'Ranking', count: ranking.length },
+    { key: 'feed', label: 'Actividade' },
+    { key: 'elements', label: 'Por elemento' },
+    { key: 'ranking', label: 'Ranking' },
   ];
 
   const storyGroups = groupByStory(assets);
@@ -140,7 +140,7 @@ export default function Social() {
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '3rem 2rem' }}>
 
         {/* Page title */}
-        <div className="mb-10">
+        <div style={{ marginBottom: '3rem' }}>
           <h1 className="font-display text-5xl italic font-light text-ink leading-none tracking-tight">
             Actividade social
           </h1>
@@ -148,26 +148,18 @@ export default function Social() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0 mb-10 border-b border-border">
+        <div className="flex items-center gap-6" style={{ marginBottom: '3rem' }}>
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-normal transition-colors relative flex items-center gap-2 ${
-                tab === t.key ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+              className={`px-8 py-3 rounded-lg text-sm tracking-wide transition-all duration-150 ${
+                tab === t.key
+                  ? 'bg-ink-soft text-paper font-normal'
+                  : 'text-ink-muted hover:text-ink font-light'
               }`}
             >
               {t.label}
-              {!loading && t.count > 0 && (
-                <span className={`text-2xs px-1.5 py-0.5 rounded-full font-medium ${
-                  tab === t.key ? 'bg-paper-deep text-ink-muted' : 'bg-paper-deep text-ink-faint'
-                }`}>
-                  {t.count}
-                </span>
-              )}
-              {tab === t.key && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-ink" />
-              )}
             </button>
           ))}
         </div>
@@ -190,7 +182,7 @@ export default function Social() {
 
         {/* ── ACTIVIDADE tab ─────────────────────────────── */}
         {!loading && tab === 'feed' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {feed.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-14 h-14 bg-paper-deep rounded-lg flex items-center justify-center mb-5">
@@ -251,13 +243,13 @@ export default function Social() {
             {storyGroups.map((group) => (
               <div key={group.story_id}>
                 {/* Story header */}
-                <div className="flex items-baseline gap-3 mb-5 pb-3 border-b border-border">
+                <div className="flex items-baseline gap-4 mb-6 pb-4 border-b border-border">
                   <h2 className="font-display text-2xl font-medium text-ink">{group.story_title}</h2>
                   <span className="text-xs font-light text-ink-faint font-mono">/{group.story_slug}</span>
                 </div>
 
                 {/* Photo grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 16 }}>
                   {group.assets.map((a) => (
                     <div
                       key={a.asset_id}
@@ -277,7 +269,7 @@ export default function Social() {
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center gap-3 mt-2 px-0.5">
+                      <div className="flex items-center gap-3 mt-3 px-1">
                         {a.like_count > 0 && (
                           <span className="text-xs font-light text-ink-muted flex items-center gap-1">
                             <span className="text-base leading-none">❤</span>
@@ -301,7 +293,7 @@ export default function Social() {
 
         {/* ── RANKING tab ────────────────────────────────── */}
         {!loading && tab === 'ranking' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {ranking.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-14 h-14 bg-paper-deep rounded-lg flex items-center justify-center mb-5">
