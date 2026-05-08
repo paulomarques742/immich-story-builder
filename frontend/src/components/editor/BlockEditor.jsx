@@ -431,6 +431,9 @@ function MapEditor({ content, update, onChange, setContent }) {
           <Field label="Cor da rota">
             <input className="field-input" style={{ padding: 2, height: 34 }} type="color" value={content.route_color || '#E07B54'} onChange={(e) => update('route_color', e.target.value)} />
           </Field>
+          <Field label="Zoom inicial">
+            <input className="field-input" type="number" min="1" max="18" value={content.zoom ?? 10} onChange={(e) => update('zoom', parseInt(e.target.value) || 10)} />
+          </Field>
         </>
       )}
 
