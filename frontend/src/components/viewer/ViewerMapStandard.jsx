@@ -1,4 +1,32 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvent } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+
+function ZoomSync({ center, zoom, programmaticRef }) {
+  const map = useMap();
+  useEffect(() => {
+    programmaticRef.current = true;
+    map.setView(center, zoom);
+    const t = setTimeout(() => { programmaticRef.current = false; }, 400);
+    return () => clearTimeout(t);
+  }, [center[0], center[1], zoom]);
+  return null;
+}
+
+function PanCapture({ onViewChange, programmaticRef }) {
+  useMapEvent('moveend', (e) => {
+    if (programmaticRef.current) return;
+    const { lat, lng } = e.target.getCenter();
+    onViewChange([lat, lng], e.target.getZoom());
+  });
+  return null;
+}
+
+function PinPlacer({ onMapClick }) {
+  useMapEvent('click', (e) => {
+    onMapClick(e.latlng.lat, e.latlng.lng);
+  });
+  return null;
+}
 
 const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
@@ -10,16 +38,18 @@ const PinIcon = () => (
   </svg>
 );
 
-export default function ViewerMapStandard({ content }) {
+export default function ViewerMapStandard({ content, onViewChange, onMapClick }) {
   const { mode = 'manual', label, lat, lng, zoom = 12, show_route, route_color = '#c4795a' } = content;
+  const programmaticRef = useRef(false);
 
   const markers = mode === 'auto'
     ? (content.resolved_markers || []).filter((m) => m.lat != null)
     : (lat && lng ? [{ lat, lng, label }] : []);
   const positions = markers.map((m) => [m.lat, m.lng]);
-  const center = positions[0] || [38.7, -9.1];
+  const center = content.map_center || positions[0] || [38.7, -9.1];
 
-  if (markers.length === 0) {
+  // In viewer mode with no markers: show placeholder
+  if (markers.length === 0 && !onMapClick) {
     return (
       <div style={{
         borderRadius: 8, overflow: 'hidden', border: '1px solid var(--paper-deep)',
@@ -34,12 +64,33 @@ export default function ViewerMapStandard({ content }) {
     );
   }
 
+  const wrapStyle = {
+    borderRadius: 8, overflow: 'hidden',
+    border: '1px solid var(--paper-deep)',
+    background: 'var(--paper-warm)', margin: '2.5rem 0',
+  };
+
+  // Empty manual mode in editor: show clickable map with hint
+  if (markers.length === 0 && onMapClick) {
+    return (
+      <div style={wrapStyle}>
+        <MapContainer center={center} zoom={zoom} style={{ height: 280, width: '100%', cursor: 'crosshair' }} scrollWheelZoom={false} dragging={true}>
+          <ZoomSync center={center} zoom={zoom} programmaticRef={programmaticRef} />
+          <PinPlacer onMapClick={onMapClick} />
+          <TileLayer url={OSM_URL} attribution={OSM_ATTR} />
+        </MapContainer>
+        <div style={{
+          padding: '0.5rem 1rem', borderTop: '1px solid var(--paper-deep)',
+          fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--ink-muted)', textAlign: 'center',
+        }}>
+          Clique no mapa para colocar o pin
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      borderRadius: 8, overflow: 'hidden',
-      border: '1px solid var(--paper-deep)',
-      background: 'var(--paper-warm)', margin: '2.5rem 0',
-    }}>
+    <div style={wrapStyle}>
       <div style={{
         padding: '1rem 1.5rem', borderBottom: '1px solid var(--paper-deep)',
         display: 'flex', alignItems: 'center', gap: '0.6rem',
@@ -57,10 +108,23 @@ export default function ViewerMapStandard({ content }) {
         </div>
       </div>
 
-      <MapContainer center={center} zoom={zoom} style={{ height: 280, width: '100%' }} scrollWheelZoom={false}>
+      <MapContainer center={center} zoom={zoom} style={{ height: 280, width: '100%' }} scrollWheelZoom={!!onViewChange} dragging={true}>
+        <ZoomSync center={center} zoom={zoom} programmaticRef={programmaticRef} />
+        {onViewChange && <PanCapture onViewChange={onViewChange} programmaticRef={programmaticRef} />}
+        {onMapClick && mode === 'manual' && <PinPlacer onMapClick={onMapClick} />}
         <TileLayer url={OSM_URL} attribution={OSM_ATTR} />
         {markers.map((m, i) => (
-          <Marker key={i} position={[m.lat, m.lng]}>
+          <Marker
+            key={i}
+            position={[m.lat, m.lng]}
+            draggable={!!onMapClick && mode === 'manual'}
+            eventHandlers={onMapClick && mode === 'manual' ? {
+              dragend: (e) => {
+                const { lat, lng } = e.target.getLatLng();
+                onMapClick(lat, lng);
+              },
+            } : undefined}
+          >
             {m.label && <Popup>{m.label}</Popup>}
           </Marker>
         ))}
@@ -75,7 +139,9 @@ export default function ViewerMapStandard({ content }) {
         fontFamily: 'var(--font-body)', fontSize: '0.65rem', color: 'var(--ink-faint)',
       }}>
         <span>© OpenStreetMap contributors</span>
-        {markers.length > 1 && <span>{markers.length} pontos</span>}
+        {onMapClick && mode === 'manual'
+          ? <span style={{ color: 'var(--ink-muted)', fontSize: '0.7rem' }}>Clique ou arraste o pin para reposicionar</span>
+          : markers.length > 1 && <span>{markers.length} pontos</span>}
       </div>
     </div>
   );

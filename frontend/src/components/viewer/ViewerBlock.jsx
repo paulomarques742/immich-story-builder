@@ -57,7 +57,7 @@ function blockMatchesPeople(block, content, personAssetIds) {
 }
 
 // ── ViewerBlock dispatcher ───────────────────────────────────────
-export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, personAssetIds, thumbUrlFn = publicThumbUrl, originalUrlFn = null, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
+export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, personAssetIds, thumbUrlFn = publicThumbUrl, originalUrlFn = null, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike, onMapViewChange, onMapPinChange }) {
   const content = parse(block);
   const matchedPeople = blockMatchesPeople(block, content, personAssetIds);
   const dimStyle = matchedPeople ? undefined : { display: 'none' };
@@ -79,7 +79,7 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
         </div>
       );
     case 'map':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerMapSkinned content={content} /></div>;
+      return <div id={`block-${block.id}`} style={dimStyle}><ViewerMapSkinned content={content} onViewChange={onMapViewChange} onMapClick={onMapPinChange} /></div>;
     case 'video':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} thumbUrlFn={thumbUrlFn} originalUrlFn={originalUrlFn} /></div>;
     case 'quote':

@@ -30,7 +30,7 @@ export default function BlockEditor({ block, onChange, storyId }) {
   if (block.type === 'grid') return <GridEditor content={content} update={update} updateMany={updateMany} storyId={storyId} />;
   if (block.type === 'text') return <TextEditor content={content} update={update} />;
   if (block.type === 'quote') return <QuoteEditor content={content} update={update} />;
-  if (block.type === 'map') return <MapEditor content={content} update={update} onChange={onChange} setContent={setContent} />;
+  if (block.type === 'map') return <MapEditor content={content} update={update} updateMany={updateMany} onChange={onChange} setContent={setContent} />;
   if (block.type === 'video') return <VideoEditor content={content} update={update} storyId={storyId} />;
   if (block.type === 'divider') return <DividerEditor content={content} update={update} />;
   if (block.type === 'spacer') return <SpacerEditor content={content} update={update} />;
@@ -357,9 +357,24 @@ function TextEditor({ content, update }) {
 }
 
 /* ── Map editor ──────────────────────────────────────────────── */
-function MapEditor({ content, update, onChange, setContent }) {
+function MapEditor({ content, update, updateMany, onChange, setContent }) {
   const [resolving, setResolving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [localZoom, setLocalZoom] = useState(content.zoom ?? 12);
+  useEffect(() => setLocalZoom(content.zoom ?? 12), [content.zoom]);
+
+  function fitAllMarkers() {
+    const markers = content.resolved_markers || [];
+    if (!markers.length) return;
+    const lats = markers.map((m) => m.lat);
+    const lngs = markers.map((m) => m.lng);
+    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
+    const zoom = Math.max(2, Math.min(14, Math.round(7.5 - Math.log2(span + 0.001))));
+    updateMany({ map_center: [centerLat, centerLng], zoom });
+    setLocalZoom(zoom);
+  }
 
   async function resolveGPS() {
     const assetIds = content.asset_ids || [];
@@ -407,8 +422,8 @@ function MapEditor({ content, update, onChange, setContent }) {
               <input className="field-input" type="number" step="any" value={content.lng ?? ''} onChange={(e) => update('lng', parseFloat(e.target.value) || null)} placeholder="-9.1399" />
             </Field>
           </div>
-          <Field label="Zoom">
-            <input className="field-input" type="number" min="1" max="18" value={content.zoom ?? 12} onChange={(e) => update('zoom', parseInt(e.target.value) || 12)} />
+          <Field label={`Zoom — ${localZoom}`}>
+            <input className="field-input" type="range" min="1" max="18" value={localZoom} onChange={(e) => setLocalZoom(parseInt(e.target.value))} onPointerUp={(e) => update('zoom', parseInt(e.target.value))} />
           </Field>
           <Field label="Etiqueta">
             <input className="field-input" value={content.label || ''} onChange={(e) => update('label', e.target.value)} placeholder="Lisboa" />
@@ -427,12 +442,15 @@ function MapEditor({ content, update, onChange, setContent }) {
           <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={resolveGPS} disabled={resolving || !(content.asset_ids || []).length}>
             {resolving ? 'A resolver GPS...' : '📍 Resolver coordenadas GPS'}
           </button>
+          <button className="px-3 py-2 border border-dashed border-border-strong rounded-sm bg-paper-warm text-xs font-normal text-ink-muted cursor-pointer w-full text-center transition-colors hover:bg-paper-deep" onClick={fitAllMarkers} disabled={!(content.resolved_markers || []).length}>
+            🗺️ Centrar em todos os pontos
+          </button>
           <Toggle checked={!!content.show_route} onChange={(v) => update('show_route', v)} label="Ligar pontos com linha" />
           <Field label="Cor da rota">
             <input className="field-input" style={{ padding: 2, height: 34 }} type="color" value={content.route_color || '#E07B54'} onChange={(e) => update('route_color', e.target.value)} />
           </Field>
-          <Field label="Zoom inicial">
-            <input className="field-input" type="number" min="1" max="18" value={content.zoom ?? 10} onChange={(e) => update('zoom', parseInt(e.target.value) || 10)} />
+          <Field label={`Zoom inicial — ${localZoom}`}>
+            <input className="field-input" type="range" min="1" max="18" value={localZoom} onChange={(e) => setLocalZoom(parseInt(e.target.value))} onPointerUp={(e) => update('zoom', parseInt(e.target.value))} />
           </Field>
         </>
       )}

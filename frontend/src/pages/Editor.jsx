@@ -131,6 +131,7 @@ export default function Editor() {
   }
 
   const updateBlock = useCallback(async (blockId, content) => {
+    setBlocks((b) => b.map((bl) => bl.id === blockId ? { ...bl, content } : bl));
     const res = await api.put(`/api/stories/${id}/blocks/${blockId}`, { content });
     setBlocks((b) => b.map((bl) => bl.id === blockId ? res.data : bl));
   }, [id]);
@@ -431,7 +432,20 @@ export default function Editor() {
                   }}
                   onDelete={() => deleteBlock(b.id)}
                 />
-                <ViewerBlock block={b} story={story} thumbUrlFn={editorThumbUrl} originalUrlFn={editorOriginalUrl} />
+                <ViewerBlock
+                  block={b}
+                  story={story}
+                  thumbUrlFn={editorThumbUrl}
+                  originalUrlFn={editorOriginalUrl}
+                  onMapViewChange={b.type === 'map' ? (center, zoom) => {
+                    const cur = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+                    updateBlock(b.id, { ...cur, map_center: center, zoom });
+                  } : undefined}
+                  onMapPinChange={b.type === 'map' ? (lat, lng) => {
+                    const cur = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+                    updateBlock(b.id, { ...cur, lat, lng, map_center: [lat, lng] });
+                  } : undefined}
+                />
               </div>
             );
             return (
