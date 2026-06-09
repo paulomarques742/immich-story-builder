@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
-const { pipeStream, proxyImmichVideo } = require('../lib/streamProxy');
+const { pipeStream, proxyImmichVideo, forwardStreamHeaders } = require('../lib/streamProxy');
 
 const router = express.Router();
 
@@ -86,11 +86,7 @@ router.get('/assets/:assetId/original', thumbAuth, requireAuth, async (req, res)
       { headers, responseType: 'stream' }
     );
 
-    res.status(response.status);
-    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
-    for (const h of forward) {
-      if (response.headers[h]) res.setHeader(h, response.headers[h]);
-    }
+    forwardStreamHeaders(res, response);
     pipeStream(req, res, response);
   } catch (err) {
     console.error('[immich proxy]', req.path, err.response?.status, err.message);

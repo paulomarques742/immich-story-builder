@@ -1,5 +1,8 @@
 const axios = require('axios');
 
+// Margem abaixo do limite de 32 MiB do Cloud Run para respostas com Content-Length.
+const CLOUD_RUN_BUFFER_LIMIT = 31 * 1024 * 1024;
+
 // Faz pipe de uma resposta-stream do Immich (axios responseType: 'stream')
 // para res, tratando o cancelamento do cliente e erros de stream sem derrubar
 // o processo. Sem isto, um <video> que cancela pedidos Range a meio faz o
@@ -53,11 +56,24 @@ async function proxyImmichVideo(req, res, { baseURL, apiKey, assetId }) {
     }
   }
 
-  res.status(response.status);
-  for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
-    if (response.headers[h]) res.setHeader(h, response.headers[h]);
-  }
+  forwardStreamHeaders(res, response);
   pipeStream(req, res, response);
 }
 
-module.exports = { pipeStream, proxyImmichVideo };
+// Reencaminha status + headers de uma resposta-stream do Immich.
+// Cloud Run rejeita respostas com Content-Length > 32 MiB ("Response size was
+// too large"). Só reencaminhamos o Content-Length para respostas pequenas (que
+// o iOS/Safari preferem); acima do limite omitimos → Express envia em
+// Transfer-Encoding: chunked, que o Cloud Run faz stream sem limite.
+function forwardStreamHeaders(res, response) {
+  res.status(response.status);
+  for (const h of ['content-type', 'content-range', 'accept-ranges']) {
+    if (response.headers[h]) res.setHeader(h, response.headers[h]);
+  }
+  const len = Number(response.headers['content-length']);
+  if (Number.isFinite(len) && len <= CLOUD_RUN_BUFFER_LIMIT) {
+    res.setHeader('content-length', response.headers['content-length']);
+  }
+}
+
+module.exports = { pipeStream, proxyImmichVideo, forwardStreamHeaders };

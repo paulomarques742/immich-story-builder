@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./db');
-const { pipeStream, proxyImmichVideo } = require('./lib/streamProxy');
+const { pipeStream, proxyImmichVideo, forwardStreamHeaders } = require('./lib/streamProxy');
 const authRoutes = require('./routes/auth');
 const storiesRoutes = require('./routes/stories');
 const blocksRoutes = require('./routes/blocks');
@@ -212,11 +212,7 @@ app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
       responseType: 'stream',
     });
 
-    res.status(response.status);
-    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
-    for (const h of forward) {
-      if (response.headers[h]) res.setHeader(h, response.headers[h]);
-    }
+    forwardStreamHeaders(res, response);
     if (req.query.download) {
       res.setHeader('Content-Disposition', 'attachment');
     }
