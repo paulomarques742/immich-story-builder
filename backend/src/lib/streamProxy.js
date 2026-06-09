@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 // Faz pipe de uma resposta-stream do Immich (axios responseType: 'stream')
 // para res, tratando o cancelamento do cliente e erros de stream sem derrubar
 // o processo. Sem isto, um <video> que cancela pedidos Range a meio faz o
@@ -26,4 +28,36 @@ function pipeStream(req, res, upstream) {
   upstream.data.pipe(res);
 }
 
-module.exports = { pipeStream };
+// Faz proxy do stream de vídeo do Immich para res. Tenta primeiro o stream
+// transcodificado web-friendly (/video/playback); se o Immich falhar (ex.:
+// transcoding desativado/incompleto → 500), cai para o ficheiro /original
+// (vídeos de telemóvel são h264/mp4 e o browser reproduz nativamente).
+// Regista o erro real para os logs do Cloud Run.
+async function proxyImmichVideo(req, res, { baseURL, apiKey, assetId }) {
+  const headers = { 'x-api-key': apiKey };
+  if (req.headers.range) headers['Range'] = req.headers.range;
+  const get = (path) =>
+    axios.get(`${baseURL}/api/assets/${assetId}/${path}`, { headers, responseType: 'stream' });
+
+  let response;
+  try {
+    response = await get('video/playback');
+  } catch (err) {
+    console.error(`[video] playback ${assetId}: ${err.response?.status || err.code || err.message} — fallback /original`);
+    try {
+      response = await get('original');
+    } catch (err2) {
+      console.error(`[video] original ${assetId}: ${err2.response?.status || err2.code || err2.message}`);
+      if (!res.headersSent) res.status(err2.response?.status || 502).end();
+      return;
+    }
+  }
+
+  res.status(response.status);
+  for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+    if (response.headers[h]) res.setHeader(h, response.headers[h]);
+  }
+  pipeStream(req, res, response);
+}
+
+module.exports = { pipeStream, proxyImmichVideo };

@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./db');
-const { pipeStream } = require('./lib/streamProxy');
+const { pipeStream, proxyImmichVideo } = require('./lib/streamProxy');
 const authRoutes = require('./routes/auth');
 const storiesRoutes = require('./routes/stories');
 const blocksRoutes = require('./routes/blocks');
@@ -176,6 +176,7 @@ app.get('/api/public/:slug/assets/:assetId/thumb', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     pipeStream(req, res, response);
   } catch (err) {
+    console.error('[immich proxy]', req.path, err.response?.status, err.message);
     if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
@@ -221,6 +222,7 @@ app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
     }
     pipeStream(req, res, response);
   } catch (err) {
+    console.error('[immich proxy]', req.path, err.response?.status, err.message);
     if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
@@ -246,25 +248,8 @@ app.get('/api/public/:slug/assets/:assetId/video', async (req, res) => {
   const apiKey = process.env.IMMICH_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'No IMMICH_API_KEY configured on server' });
 
-  try {
-    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
-    const headers = { 'x-api-key': apiKey };
-    if (req.headers.range) headers['Range'] = req.headers.range;
-
-    const response = await axios.get(`${baseURL}/api/assets/${assetId}/video/playback`, {
-      headers,
-      responseType: 'stream',
-    });
-
-    res.status(response.status);
-    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
-    for (const h of forward) {
-      if (response.headers[h]) res.setHeader(h, response.headers[h]);
-    }
-    pipeStream(req, res, response);
-  } catch (err) {
-    if (!res.headersSent) res.status(err.response?.status || 502).end();
-  }
+  const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+  await proxyImmichVideo(req, res, { baseURL, apiKey, assetId });
 });
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -329,6 +314,7 @@ app.get('/api/public/:slug/people/:personId/thumb', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     pipeStream(req, res, response);
   } catch (err) {
+    console.error('[immich proxy]', req.path, err.response?.status, err.message);
     if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
