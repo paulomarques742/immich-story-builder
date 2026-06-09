@@ -1,4 +1,4 @@
-import { originalUrl } from '../../lib/immich.js';
+import { videoUrl } from '../../lib/immich.js';
 
 export default function VideoBlock({ content }) {
   const { asset_id, caption, autoplay = false, loop = false } = content;
@@ -15,7 +15,7 @@ export default function VideoBlock({ content }) {
     <div style={s.wrap}>
       <video
         style={s.video}
-        src={originalUrl(asset_id)}
+        src={videoUrl(asset_id)}
         controls
         autoPlay={autoplay}
         loop={loop}

@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./db');
+const { pipeStream } = require('./lib/streamProxy');
 const authRoutes = require('./routes/auth');
 const storiesRoutes = require('./routes/stories');
 const blocksRoutes = require('./routes/blocks');
@@ -29,6 +30,15 @@ if (!process.env.IMMICH_API_KEY) {
   console.error('FATAL: IMMICH_API_KEY is not set');
   process.exit(1);
 }
+
+// Rede de segurança: erros de stream não tratados (ex.: cliente cancela um
+// pedido Range de vídeo a meio) não devem derrubar o processo. Registar e seguir.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -164,13 +174,13 @@ app.get('/api/public/:slug/assets/:assetId/thumb', async (req, res) => {
     });
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).end();
+    if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
 
-// GET /api/public/:slug/assets/:assetId/original  — public video proxy (supports Range)
+// GET /api/public/:slug/assets/:assetId/original  — public original proxy / download (supports Range)
 app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
   const { slug, assetId } = req.params;
 
@@ -209,9 +219,51 @@ app.get('/api/public/:slug/assets/:assetId/original', async (req, res) => {
     if (req.query.download) {
       res.setHeader('Content-Disposition', 'attachment');
     }
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).end();
+    if (!res.headersSent) res.status(err.response?.status || 502).end();
+  }
+});
+
+// GET /api/public/:slug/assets/:assetId/video  — public video playback proxy (supports Range)
+app.get('/api/public/:slug/assets/:assetId/video', async (req, res) => {
+  const { slug, assetId } = req.params;
+
+  const story = db.prepare('SELECT id FROM stories WHERE slug = ? AND published = 1').get(slug);
+  if (!story) return res.status(404).end();
+
+  const blocks = db.prepare('SELECT content FROM blocks WHERE story_id = ?').all(story.id);
+  const allowed = blocks.some((block) => {
+    try {
+      const c = typeof block.content === 'string' ? JSON.parse(block.content) : block.content;
+      if (c.asset_id === assetId) return true;
+      if (Array.isArray(c.asset_ids) && c.asset_ids.includes(assetId)) return true;
+      return false;
+    } catch { return false; }
+  });
+  if (!allowed) return res.status(403).end();
+
+  const apiKey = process.env.IMMICH_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'No IMMICH_API_KEY configured on server' });
+
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const headers = { 'x-api-key': apiKey };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const response = await axios.get(`${baseURL}/api/assets/${assetId}/video/playback`, {
+      headers,
+      responseType: 'stream',
+    });
+
+    res.status(response.status);
+    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+    for (const h of forward) {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
+    }
+    pipeStream(req, res, response);
+  } catch (err) {
+    if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
 
@@ -275,9 +327,9 @@ app.get('/api/public/:slug/people/:personId/thumb', async (req, res) => {
     });
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).end();
+    if (!res.headersSent) res.status(err.response?.status || 502).end();
   }
 });
 

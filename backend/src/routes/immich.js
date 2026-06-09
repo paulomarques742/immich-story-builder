@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
+const { pipeStream } = require('../lib/streamProxy');
 
 const router = express.Router();
 
@@ -66,9 +67,9 @@ router.get('/assets/:assetId/thumb', thumbAuth, requireAuth, async (req, res) =>
       }
     );
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+    if (!res.headersSent) res.status(err.response?.status || 502).json({ error: 'Immich error' });
   }
 });
 
@@ -89,9 +90,34 @@ router.get('/assets/:assetId/original', thumbAuth, requireAuth, async (req, res)
     for (const h of forward) {
       if (response.headers[h]) res.setHeader(h, response.headers[h]);
     }
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+    if (!res.headersSent) res.status(err.response?.status || 502).json({ error: 'Immich error' });
+  }
+});
+
+// GET /api/immich/assets/:assetId/video  — proxy do stream de playback web do Immich
+// (supports Range for seeking). Usar este endpoint para reproduzir vídeo no browser;
+// /original serve o ficheiro cru (download).
+router.get('/assets/:assetId/video', thumbAuth, requireAuth, async (req, res) => {
+  try {
+    const baseURL = process.env.IMMICH_URL?.replace(/\/$/, '');
+    const headers = { 'x-api-key': process.env.IMMICH_API_KEY };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const response = await axios.get(
+      `${baseURL}/api/assets/${req.params.assetId}/video/playback`,
+      { headers, responseType: 'stream' }
+    );
+
+    res.status(response.status);
+    const forward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+    for (const h of forward) {
+      if (response.headers[h]) res.setHeader(h, response.headers[h]);
+    }
+    pipeStream(req, res, response);
+  } catch (err) {
+    if (!res.headersSent) res.status(err.response?.status || 502).json({ error: 'Immich error' });
   }
 });
 
@@ -118,9 +144,9 @@ router.get('/people/:personId/thumb', thumbAuth, requireAuth, async (req, res) =
       }
     );
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
-    response.data.pipe(res);
+    pipeStream(req, res, response);
   } catch (err) {
-    res.status(err.response?.status || 502).json({ error: 'Immich error' });
+    if (!res.headersSent) res.status(err.response?.status || 502).json({ error: 'Immich error' });
   }
 });
 

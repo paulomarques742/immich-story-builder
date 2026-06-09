@@ -276,6 +276,21 @@ select:focus {
 }
 .photo-like-btn.popping svg { animation: heartPop 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
 
+/* Lightbox double-tap heart burst */
+@keyframes lbHeartBurst {
+  0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.3); }
+  15%  { opacity: 0.95; transform: translate(-50%, -50%) scale(1.15); }
+  30%  { opacity: 0.95; transform: translate(-50%, -50%) scale(0.95); }
+  45%  { opacity: 0.9;  transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0;    transform: translate(-50%, -50%) scale(1.1); }
+}
+.lb-heart-burst {
+  position: absolute; top: 50%; left: 50%;
+  pointer-events: none; z-index: 5;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.4));
+  animation: lbHeartBurst 0.8s ease-out forwards;
+}
+
 /* ── Memoire dark mode ─────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {

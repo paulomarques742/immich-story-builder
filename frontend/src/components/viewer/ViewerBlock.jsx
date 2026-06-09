@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { publicThumbUrl, publicOriginalUrl } from '../../lib/immich.js';
+import { publicThumbUrl, publicVideoUrl } from '../../lib/immich.js';
 import ViewerMapSkinned from './ViewerMapSkinned';
 import { useState } from 'react';
 
@@ -67,7 +67,11 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
 
   switch (block.type) {
     case 'hero':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerHero content={content} story={story} slug={slug} thumbUrlFn={thumbUrlFn} /></div>;
+      return (
+        <div id={`block-${block.id}`} style={dimStyle}>
+          <ViewerHero content={content} story={story} slug={slug} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} thumbUrlFn={thumbUrlFn} {...photoProps} />
+        </div>
+      );
     case 'divider':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerDivider content={content} /></div>;
     case 'text':
@@ -81,7 +85,11 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
     case 'map':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerMapSkinned content={content} onViewChange={onMapViewChange} onMapClick={onMapPinChange} /></div>;
     case 'video':
-      return <div id={`block-${block.id}`} style={dimStyle}><ViewerVideo content={content} slug={slug} thumbUrlFn={thumbUrlFn} originalUrlFn={originalUrlFn} /></div>;
+      return (
+        <div id={`block-${block.id}`} style={dimStyle}>
+          <ViewerVideo content={content} slug={slug} onPhotoOpen={onPhotoOpen} photoRegistry={photoRegistry} thumbUrlFn={thumbUrlFn} {...photoProps} />
+        </div>
+      );
     case 'quote':
       return <div id={`block-${block.id}`} style={dimStyle}><ViewerQuote content={content} /></div>;
     case 'spacer':
@@ -92,16 +100,27 @@ export default function ViewerBlock({ block, story, onPhotoOpen, photoRegistry, 
 }
 
 // ── Hero ─────────────────────────────────────────────────────────
-function ViewerHero({ content, story, slug, thumbUrlFn = publicThumbUrl }) {
+function ViewerHero({ content, story, slug, onPhotoOpen, photoRegistry, thumbUrlFn = publicThumbUrl, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
   const { asset_id, caption, eyebrow, height = 'full', title } = content;
   const h = height === 'full' ? '92vh' : height === 'half' ? '60vh' : '420px';
   // Se title estiver definido (mesmo vazio) usa-o; senão fallback para título da story (blocos antigos)
   const heroTitle = title !== undefined ? title : (story?.title || '');
   const heroEyebrow = eyebrow || '';
   const heroSub = caption && caption !== heroTitle ? caption : '';
+  const clickable = !!(asset_id && onPhotoOpen);
+
+  function openHero() {
+    if (!clickable) return;
+    const idx = (photoRegistry || []).findIndex((p) => p.assetId === asset_id);
+    onPhotoOpen(idx >= 0 ? idx : 0);
+  }
 
   return (
-    <div style={{ position: 'relative', height: h, minHeight: 560, overflow: 'hidden', background: 'var(--ink)' }}>
+    <div
+      className="photo-wrap"
+      onClick={openHero}
+      style={{ position: 'relative', height: h, minHeight: 560, overflow: 'hidden', background: 'var(--ink)', cursor: clickable ? 'zoom-in' : undefined }}
+    >
       {/* Background image */}
       {asset_id && (
         <img
@@ -156,6 +175,13 @@ function ViewerHero({ content, story, slug, thumbUrlFn = publicThumbUrl }) {
           }}>{heroSub}</p>
         )}
       </div>
+
+      {/* Like / comment overlay — igual às fotos */}
+      {asset_id && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+          <PhotoStats assetId={asset_id} likeCount={likeCounts[asset_id] || 0} commentCount={commentCounts[asset_id] || 0} liked={!!likedByMe[asset_id]} onLike={onLike} />
+        </div>
+      )}
     </div>
   );
 }
@@ -405,14 +431,26 @@ function PhotoFull({ assetId, slug, caption, onOpen, thumbUrlFn = publicThumbUrl
 }
 
 // ── Video ─────────────────────────────────────────────────────────
-function ViewerVideo({ content, slug, thumbUrlFn = publicThumbUrl, originalUrlFn = null }) {
+function ViewerVideo({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = publicThumbUrl, originalUrlFn = null, likeCounts = {}, commentCounts = {}, likedByMe = {}, onLike }) {
   const { asset_id, caption, autoplay = false, loop = false } = content;
   const [playing, setPlaying] = useState(false);
-  const videoSrc = originalUrlFn ? originalUrlFn(slug, asset_id) : publicOriginalUrl(slug, asset_id);
 
   if (!asset_id) return null;
 
+  function handleClick() {
+    // Viewer público: abre o lightbox (reproduz + comentários), tal como as fotos.
+    if (onPhotoOpen) {
+      const idx = (photoRegistry || []).findIndex((p) => p.assetId === asset_id);
+      onPhotoOpen(idx >= 0 ? idx : 0);
+    } else {
+      // Pré-visualização do editor (sem lightbox): reproduz inline.
+      setPlaying(true);
+    }
+  }
+
+  // Reprodução inline (apenas no editor, quando não há lightbox disponível).
   if (playing) {
+    const videoSrc = originalUrlFn ? originalUrlFn(slug, asset_id) : publicVideoUrl(slug, asset_id);
     return (
       <div style={{ borderRadius: 6, overflow: 'hidden', margin: '2rem 0', background: 'var(--ink)' }}>
         <video
@@ -433,52 +471,63 @@ function ViewerVideo({ content, slug, thumbUrlFn = publicThumbUrl, originalUrlFn
 
   return (
     <div
-      onClick={() => setPlaying(true)}
+      className="mv-photo-full photo-wrap"
       style={{
-        position: 'relative', aspectRatio: '16/9', borderRadius: 6,
-        overflow: 'hidden', background: 'var(--ink)', cursor: 'pointer',
-        margin: '2rem 0',
+        borderRadius: 6, overflow: 'hidden',
+        boxShadow: '0 2px 12px rgba(26,24,20,0.10), 0 0 0 1px rgba(26,24,20,0.04)',
+        cursor: 'pointer', margin: '2rem 0',
       }}
     >
-      {/* Thumbnail */}
-      <img
-        src={thumbUrlFn(slug, asset_id, 'preview')}
-        alt={caption || ''}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.75 }}
-      />
-
-      {/* Play group */}
       <div
-        className="mv-video-play-group"
-        style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '1rem',
-          transition: 'transform 300ms var(--ease-out)',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        onClick={handleClick}
+        style={{ position: 'relative', aspectRatio: '16/9', background: 'var(--ink)' }}
       >
-        {/* Play circle */}
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.12)',
-          border: '1.5px solid rgba(255,255,255,0.3)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
+        {/* Thumbnail */}
+        <img
+          src={thumbUrlFn(slug, asset_id, 'preview')}
+          alt={caption || ''}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.75 }}
+        />
+
+        {/* Play group */}
+        <div
+          className="mv-video-play-group"
+          style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'transform 300ms var(--ease-out)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+        >
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.12)',
+            border: '1.5px solid rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </div>
         </div>
 
-        {caption && (
-          <span style={{
-            fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 300,
-            fontSize: '1.2rem', color: 'rgba(255,255,255,0.7)',
-          }}>{caption}</span>
-        )}
+        {/* Like / comment overlay — igual às fotos */}
+        <PhotoStats assetId={asset_id} likeCount={likeCounts[asset_id] || 0} commentCount={commentCounts[asset_id] || 0} liked={!!likedByMe[asset_id]} onLike={onLike} />
       </div>
+
+      {caption && (
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          borderTop: '1px solid var(--paper-deep)',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontStyle: 'italic', fontWeight: 300,
+            fontSize: '0.8rem', color: 'var(--ink-muted)',
+          }}>{caption}</span>
+        </div>
+      )}
     </div>
   );
 }

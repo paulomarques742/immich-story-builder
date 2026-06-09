@@ -22,6 +22,14 @@ export function originalUrl(assetId) {
   return `/api/immich/assets/${assetId}/original${tokenPart}`;
 }
 
+// Authenticated video playback URL (editor) — web-friendly stream via Immich /video/playback.
+export function videoUrl(assetId) {
+  if (!assetId) return '';
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
+  const tokenPart = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `/api/immich/assets/${assetId}/video${tokenPart}`;
+}
+
 // Authenticated person face thumbnail URL (editor)
 export function personThumbUrl(personId) {
   if (!personId) return '';
@@ -39,6 +47,12 @@ export function publicPersonThumbUrl(slug, personId) {
 export function publicOriginalUrl(slug, assetId) {
   if (!assetId || !slug) return '';
   return `/api/public/${slug}/assets/${assetId}/original`;
+}
+
+// Public video playback URL (viewer, no auth) — web-friendly stream via Immich /video/playback.
+export function publicVideoUrl(slug, assetId) {
+  if (!assetId || !slug) return '';
+  return `/api/public/${slug}/assets/${assetId}/video`;
 }
 
 export { IMMICH_URL };

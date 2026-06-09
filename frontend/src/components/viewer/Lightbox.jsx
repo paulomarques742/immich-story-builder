@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { publicThumbUrl, publicOriginalUrl } from '../../lib/immich.js';
+import { publicThumbUrl, publicOriginalUrl, publicVideoUrl } from '../../lib/immich.js';
 
 const CloseIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -31,7 +31,7 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function Lightbox({ slug, photoRegistry, initialIndex, onClose }) {
+export default function Lightbox({ slug, photoRegistry, initialIndex, onClose, likeCounts = {}, likedByMe = {}, onLike }) {
   const [index, setIndex] = useState(initialIndex ?? 0);
   const [slideDir, setSlideDir] = useState(null); // 'left' | 'right' | null
   const [sliding, setSliding] = useState(false);
@@ -42,12 +42,42 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
   const [errors, setErrors] = useState({});
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 720px)').matches);
   const [imgScale, setImgScale] = useState(1);
+  const [commentsOpen, setCommentsOpen] = useState(false); // colapsado por defeito — o media é a peça central
+  const [heartBurst, setHeartBurst] = useState(0); // incrementa para re-disparar a animação
   const photoRef = useRef(null);
   const navigateRef = useRef(null);
   const imgScaleRef = useRef(1);
+  const lastTapRef = useRef(0);
 
   const current = photoRegistry[index] || {};
   const { assetId, caption } = current;
+  const isVideo = current.type === 'video';
+  const liked = !!likedByMe[assetId];
+  const likeCount = likeCounts[assetId] || 0;
+
+  // Like explícito (toggle) — usado pelo botão.
+  function toggleLike() {
+    if (assetId) onLike?.(assetId);
+  }
+
+  // Double-tap / double-click → like (estilo redes sociais): nunca remove o like,
+  // apenas garante que fica "liked" e dispara a animação do coração.
+  function likeFromDoubleTap() {
+    if (!assetId) return;
+    if (!liked) onLike?.(assetId);
+    setHeartBurst((n) => n + 1);
+  }
+
+  function onMediaClick() {
+    // Deteção de double-tap (mobile) + double-click (desktop dispara onClick 2x).
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      likeFromDoubleTap();
+    } else {
+      lastTapRef.current = now;
+    }
+  }
 
   const navigate = useCallback((dir) => {
     const next = index + dir;
@@ -88,10 +118,11 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
   useEffect(() => { navigateRef.current = navigate; }, [navigate]);
   useEffect(() => { imgScaleRef.current = imgScale; }, [imgScale]);
 
-  // Swipe navigation + pinch-to-zoom (mobile only)
+  // Swipe navigation + pinch-to-zoom (mobile only, fotos apenas — para não
+  // colidir com os controlos nativos do vídeo)
   useEffect(() => {
     const el = photoRef.current;
-    if (!el || !isMobile) return;
+    if (!el || !isMobile || isVideo) return;
     let lastDist = null;
     let startX = null;
     let isMultiTouch = false;
@@ -133,7 +164,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
-  }, [isMobile]);
+  }, [isMobile, isVideo]);
 
   useEffect(() => {
     function onKey(e) {
@@ -166,9 +197,16 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
     finally { setSubmitting(false); }
   }
 
+  // Altura disponível para o media (preenche o ecrã; encolhe quando o drawer abre no mobile)
+  const mediaMaxHeight = isMobile
+    ? (commentsOpen ? 'calc(50vh - 70px)' : 'calc(100vh - 120px)')
+    : 'calc(100vh - 120px)';
+
   const imgStyle = {
-    width: '100%',
-    maxHeight: isMobile ? 'calc(55vh - 80px)' : 'calc(100vh - 120px)',
+    maxWidth: '100%',
+    maxHeight: mediaMaxHeight,
+    width: 'auto',
+    height: 'auto',
     objectFit: 'contain',
     borderRadius: 4,
     boxShadow: '0 8px 48px rgba(0,0,0,0.5)',
@@ -198,7 +236,8 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
         onClick={(e) => e.stopPropagation()}
         style={{
           flex: isMobile ? 'none' : 1,
-          height: isMobile ? '55vh' : undefined,
+          height: isMobile ? (commentsOpen ? '50vh' : '100%') : undefined,
+          transition: isMobile ? 'height 320ms var(--ease-out)' : undefined,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           padding: isMobile ? '2.5rem 1rem 1rem' : '3.5rem 2.5rem 2.5rem',
@@ -206,12 +245,12 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
         }}
       >
         {/* Top-right controls */}
-        <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: 8 }}>
+        <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: 8, zIndex: 6 }}>
           {assetId && (
             <a
               href={`${publicOriginalUrl(slug, assetId)}?download=1`}
               download
-              title="Descarregar foto original"
+              title="Descarregar original"
               style={{
                 width: 32, height: 32, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.06)',
@@ -270,15 +309,47 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
         {/* Image */}
         <div
           ref={photoRef}
-          style={{ width: '100%', display: 'flex', justifyContent: 'center', touchAction: isMobile ? 'none' : undefined }}
+          style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', touchAction: isMobile ? 'none' : undefined }}
         >
           {assetId && (
-            <img
-              key={assetId}
-              src={publicThumbUrl(slug, assetId, 'preview')}
-              alt={caption || ''}
-              style={imgStyle}
-            />
+            isVideo ? (
+              <video
+                key={assetId}
+                src={publicVideoUrl(slug, assetId)}
+                poster={publicThumbUrl(slug, assetId, 'preview')}
+                controls autoPlay playsInline
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: mediaMaxHeight,
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  borderRadius: 4,
+                  boxShadow: '0 8px 48px rgba(0,0,0,0.5)',
+                  background: '#000',
+                }}
+              />
+            ) : (
+              <img
+                key={assetId}
+                src={publicThumbUrl(slug, assetId, 'preview')}
+                alt={caption || ''}
+                style={{ ...imgStyle, cursor: 'pointer' }}
+                onClick={onMediaClick}
+              />
+            )
+          )}
+
+          {/* Heart burst (double-tap) */}
+          {heartBurst > 0 && (
+            <svg
+              key={heartBurst}
+              className="lb-heart-burst"
+              width="120" height="120" viewBox="0 0 24 24"
+              fill="#ff6b81" stroke="none"
+            >
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
           )}
         </div>
 
@@ -310,6 +381,57 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
           </button>
         )}
 
+        {/* Like + comments actions */}
+        {assetId && (
+          <div style={{
+            position: 'absolute', bottom: '0.85rem', left: isMobile ? '0.85rem' : '1.5rem',
+            display: 'flex', alignItems: 'center', gap: 8, zIndex: 6,
+          }}>
+            <button
+              onClick={toggleLike}
+              title={liked ? 'Remover like' : 'Like'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(4px)', borderRadius: 20,
+                padding: '6px 12px', cursor: 'pointer', transition: 'all 200ms',
+                color: liked ? '#ff6b81' : 'rgba(255,255,255,0.7)',
+                fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 500,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              {likeCount > 0 && <span>{likeCount}</span>}
+            </button>
+
+            {/* Comments toggle */}
+            <button
+              onClick={() => setCommentsOpen((o) => !o)}
+              title={commentsOpen ? 'Esconder comentários' : 'Comentários'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                background: commentsOpen ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(4px)', borderRadius: 20,
+                padding: '6px 12px', cursor: 'pointer', transition: 'all 200ms',
+                color: commentsOpen ? '#fff' : 'rgba(255,255,255,0.7)',
+                fontFamily: 'var(--font-body)', fontSize: '0.78rem', fontWeight: 500,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = commentsOpen ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {comments.length > 0 && <span>{comments.length}</span>}
+            </button>
+          </div>
+        )}
+
         {/* Counter */}
         {photoRegistry.length > 1 && (
           <p style={{
@@ -320,22 +442,26 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
         )}
       </div>
 
-      {/* Comments side */}
+      {/* Comments drawer — colapsado por defeito */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: isMobile ? '100%' : 340,
-          flex: isMobile ? 1 : undefined,
           flexShrink: 0,
-          overflow: isMobile ? 'hidden' : undefined,
+          overflow: 'hidden',
           background: 'var(--paper)',
-          display: 'flex', flexDirection: 'column',
-          transform: open
-            ? 'translate(0,0)'
-            : isMobile ? 'translateY(20px)' : 'translateX(20px)',
-          transition: 'transform 380ms 60ms var(--ease-out)',
+          width: isMobile ? '100%' : (commentsOpen ? 360 : 0),
+          height: isMobile ? (commentsOpen ? '50vh' : 0) : undefined,
+          borderLeft: !isMobile && commentsOpen ? '1px solid var(--paper-deep)' : 'none',
+          transition: isMobile ? 'height 320ms var(--ease-out)' : 'width 320ms var(--ease-out)',
         }}
       >
+        {/* Inner fixed-size content — evita refluxo durante a animação */}
+        <div style={{
+          width: isMobile ? '100%' : 360,
+          height: '100%',
+          flexShrink: 0,
+          display: 'flex', flexDirection: 'column',
+        }}>
         {/* Header */}
         <div style={{
           padding: '1.25rem 1.5rem 1rem',
@@ -469,6 +595,7 @@ export default function Lightbox({ slug, photoRegistry, initialIndex, onClose })
             {submitting ? 'A enviar…' : 'Publicar'}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );

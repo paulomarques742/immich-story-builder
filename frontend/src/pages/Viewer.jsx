@@ -17,16 +17,21 @@ function parse(block) {
   catch { return {}; }
 }
 
-// Build a flat registry of all clickable photos in DOM order
+// Build a flat registry of all clickable media (photos + videos) in DOM order
 function buildPhotoRegistry(blocks) {
   const registry = [];
   blocks.forEach((block) => {
-    if (block.type !== 'grid') return;
     const content = parse(block);
-    const { asset_ids = [], caption } = content;
-    asset_ids.forEach((assetId) => {
-      registry.push({ assetId, caption: caption || '' });
-    });
+    if (block.type === 'hero' && content.asset_id) {
+      registry.push({ assetId: content.asset_id, caption: content.caption || content.title || '', type: 'photo' });
+    } else if (block.type === 'grid') {
+      const { asset_ids = [], caption } = content;
+      asset_ids.forEach((assetId) => {
+        registry.push({ assetId, caption: caption || '', type: 'photo' });
+      });
+    } else if (block.type === 'video' && content.asset_id) {
+      registry.push({ assetId: content.asset_id, caption: content.caption || '', type: 'video' });
+    }
   });
   return registry;
 }
@@ -364,6 +369,9 @@ export default function Viewer() {
           photoRegistry={photoRegistry}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
+          likeCounts={counts.likes}
+          likedByMe={likedByMe}
+          onLike={handleLike}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
-import { thumbUrl, originalUrl } from '../lib/immich.js';
+import { thumbUrl, videoUrl } from '../lib/immich.js';
 import SortableBlockList from '../components/editor/SortableBlockList.jsx';
 import BlockEditor from '../components/editor/BlockEditor.jsx';
 import BlockToolbar from '../components/editor/BlockToolbar.jsx';
@@ -31,7 +31,7 @@ const DEFAULT_CONTENT = {
 };
 
 const editorThumbUrl = (_slug, assetId, size) => thumbUrl(assetId, size);
-const editorOriginalUrl = (_slug, assetId) => originalUrl(assetId);
+const editorVideoUrl = (_slug, assetId) => videoUrl(assetId);
 
 function BlockInsertZone({ afterIdx, insertMenuIdx, setInsertMenuIdx, onAdd }) {
   const isOpen = insertMenuIdx === afterIdx;
@@ -436,7 +436,7 @@ export default function Editor() {
                   block={b}
                   story={story}
                   thumbUrlFn={editorThumbUrl}
-                  originalUrlFn={editorOriginalUrl}
+                  originalUrlFn={editorVideoUrl}
                   onMapViewChange={b.type === 'map' ? (center, zoom) => {
                     const cur = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
                     updateBlock(b.id, { ...cur, map_center: center, zoom });
