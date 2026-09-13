@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { publicThumbUrl, publicVideoUrl } from '../../lib/immich.js';
+import { publicThumbUrl, publicVideoUrl, THUMB_WIDTH, PREVIEW_WIDTH } from '../../lib/immich.js';
 import ViewerMapSkinned from './ViewerMapSkinned';
 import { useState } from 'react';
 
@@ -280,11 +280,20 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
 
   const photoProps = { likeCounts, commentCounts, likedByMe, onLike };
 
-  // Wrapper with overlay for grid items (non-full-width)
-  function GridItem({ id, style, imgStyle, className }) {
+  // Wrapper with overlay for grid items (non-full-width).
+  // `sizes` = largura aproximada da célula (corpo da story ≤ ~840px; mobile ≤ 720px),
+  // para o browser escolher entre thumbnail e preview conforme a célula e o DPR.
+  function GridItem({ id, style, imgStyle, className, sizes }) {
     return (
       <div className={`photo-wrap${className ? ' ' + className : ''}`} style={{ ...style, cursor: 'zoom-in' }} onClick={() => openPhoto(id)}>
-        <img src={thumbUrlFn(slug, id, 'preview')} alt="" className="mv-photo-img" style={imgStyle} />
+        <img
+          src={thumbUrlFn(slug, id, 'preview')}
+          srcSet={`${thumbUrlFn(slug, id, 'thumbnail')} ${THUMB_WIDTH}w, ${thumbUrlFn(slug, id, 'preview')} ${PREVIEW_WIDTH}w`}
+          sizes={sizes}
+          loading="lazy"
+          decoding="async"
+          alt="" className="mv-photo-img" style={imgStyle}
+        />
         <PhotoStats assetId={id} likeCount={likeCounts[id] || 0} commentCount={commentCounts[id] || 0} liked={!!likedByMe[id]} onLike={onLike} />
       </div>
     );
@@ -313,7 +322,7 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
     return (
       <div className="mv-photo-duo" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: gapValue, margin: '2rem 0' }}>
         {asset_ids.map((id) => (
-          <GridItem key={id} id={id}
+          <GridItem key={id} id={id} sizes="(max-width: 720px) 100vw, 420px"
             style={{ borderRadius: 5, overflow: 'hidden', boxShadow: '0 1px 8px rgba(26,24,20,0.08)' }}
             imgStyle={{ aspectRatio: duoAspect, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             className="mv-photo-duo-item"
@@ -337,7 +346,7 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
             return (
               <div key={chunk[0]} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: gapValue }}>
                 {chunk.map((id) => (
-                  <GridItem key={id} id={id}
+                  <GridItem key={id} id={id} sizes="(max-width: 720px) 50vw, 420px"
                     style={{ borderRadius: 5, overflow: 'hidden' }}
                     imgStyle={{ aspectRatio: '4/3', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
@@ -350,7 +359,7 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
           const [main, s1, s2] = bigLeft ? [a, b, c] : [c, a, b];
           const cols = bigLeft ? '2fr 1fr' : '1fr 2fr';
           const mainEl = (
-            <GridItem key={main} id={main}
+            <GridItem key={main} id={main} sizes="(max-width: 720px) 67vw, 560px"
               style={{ borderRadius: 5, overflow: 'hidden' }}
               imgStyle={{ minHeight: 240, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
@@ -358,7 +367,7 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
           const stackEl = (
             <div key={s1} style={{ display: 'flex', flexDirection: 'column', gap: gapValue }}>
               {[s1, s2].map((id) => (
-                <GridItem key={id} id={id}
+                <GridItem key={id} id={id} sizes="(max-width: 720px) 33vw, 280px"
                   style={{ flex: 1, borderRadius: 5, overflow: 'hidden' }}
                   imgStyle={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
@@ -378,13 +387,15 @@ function ViewerGrid({ content, slug, onPhotoOpen, photoRegistry, thumbUrlFn = pu
   // Default: uniform grid (3, 4 columns)
   const gridClass = columns === 3 ? 'mv-photo-grid-3' : columns === 4 ? 'mv-photo-grid-4' : '';
   const aspectRatio = aspect === 'landscape' ? '16/9' : aspect === 'portrait' ? '3/4' : '1/1';
+  const mobileColumns = columns === 3 ? 2 : columns; // .mv-photo-grid-3 passa a 2 colunas ≤ 720px
+  const gridSizes = `(max-width: 720px) ${Math.round(100 / mobileColumns)}vw, ${Math.round(840 / columns)}px`;
   return (
     <div
       className={gridClass}
       style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: gapValue, margin: '2rem 0' }}
     >
       {asset_ids.map((id) => (
-        <GridItem key={id} id={id}
+        <GridItem key={id} id={id} sizes={gridSizes}
           style={{ borderRadius: 4, overflow: 'hidden' }}
           imgStyle={{ aspectRatio, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           className="mv-photo-grid-item"

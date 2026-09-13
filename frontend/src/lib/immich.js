@@ -1,5 +1,10 @@
 const IMMICH_URL = import.meta.env.VITE_IMMICH_URL?.replace(/\/$/, '') || '';
 
+// Lado menor (px) dos tamanhos gerados pelo Immich — valores por omissão em
+// Administração → Definições de imagem. Usados como descritores `w` no srcset.
+export const THUMB_WIDTH = 250;
+export const PREVIEW_WIDTH = 1440;
+
 // Authenticated thumbnail URL — for use inside the editor (requires JWT).
 export function thumbUrl(assetId, size = 'thumbnail') {
   if (!assetId) return '';
