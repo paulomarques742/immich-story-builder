@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Editor from './pages/Editor.jsx';
 import Viewer from './pages/Viewer.jsx';
 import Social from './pages/Social.jsx';
+import GroupPage from './pages/GroupPage.jsx';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -27,6 +28,7 @@ export default function App() {
           path="/social"
           element={<PrivateRoute><Social /></PrivateRoute>}
         />
+        <Route path="/g/:slug" element={<GroupPage />} />
         <Route path="/:slug" element={<Viewer />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>

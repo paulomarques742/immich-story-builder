@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api.js';
 import { thumbUrl } from '../lib/immich.js';
 import StorySettingsModal from '../components/editor/StorySettingsModal.jsx';
+import GroupsPanel from '../components/dashboard/GroupsPanel.jsx';
 
 const BrandIcon = ({ size = 22, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 20 20" fill={color} xmlns="http://www.w3.org/2000/svg">
@@ -37,6 +38,9 @@ export default function Dashboard() {
   // Users panel
   const [users, setUsers] = useState([]);
   const [showUsers, setShowUsers] = useState(false);
+
+  // Groups panel
+  const [showGroups, setShowGroups] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState([]);
@@ -127,6 +131,9 @@ export default function Dashboard() {
               )}
             </button>
 
+            <button className="btn btn-ghost text-ink-faint hover:text-paper" onClick={() => setShowGroups((v) => !v)}>
+              Grupos
+            </button>
             <button className="btn btn-ghost text-ink-faint hover:text-paper" onClick={() => navigate('/social')}>
               Social
             </button>
@@ -201,6 +208,9 @@ export default function Dashboard() {
             })}
           </div>
         )}
+
+        {/* Groups panel */}
+        {showGroups && <GroupsPanel stories={stories} />}
 
         {/* Users panel */}
         {showUsers && user.role === 'admin' && (

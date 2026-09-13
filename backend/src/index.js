@@ -19,6 +19,8 @@ const notificationsRoutes = require('./routes/notifications');
 const socialRoutes = require('./routes/social');
 const aiRoutes = require('./routes/ai');
 const contributionsRoutes = require('./routes/contributions');
+const groupsRoutes = require('./routes/groups');
+const publicGroupsRoutes = require('./routes/publicGroups');
 const startSyncJob = require('./sync');
 
 // Fail fast if critical secrets are missing or too weak
@@ -97,6 +99,10 @@ app.use('/api', commentsRoutes);
 app.use('/api', notificationsRoutes);
 app.use('/api', socialRoutes);
 app.use('/api', contributionsRoutes);
+app.use('/api', groupsRoutes);
+
+// ── Public group page: /api/g/:slug ───────────────────────────
+app.use('/api/g', publicGroupsRoutes);
 
 // ── Public story: GET /api/public/:slug ───────────────────────
 app.get('/api/public/:slug', (req, res) => {
@@ -467,7 +473,42 @@ if (process.env.NODE_ENV === 'production') {
     res.type('html').send(indexHtml.replace('<title>Memoire</title>', tags));
   });
 
-  app.get('*', (_req, res) => res.sendFile(path.join(frontendDist, 'index.html')));
+  // OG meta tags para a página pública de um grupo
+  app.get('/g/:slug([a-z0-9][a-z0-9-]*)', (req, res, next) => {
+    const group = db.prepare('SELECT id, name, description, slug, password_hash FROM share_groups WHERE slug = ?').get(req.params.slug);
+    if (!group) return next();
+
+    const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    // Imagem = capa da story mais recente do grupo (omitida se o grupo tiver password)
+    const latest = group.password_hash ? null : db.prepare(`
+      SELECT s.slug, COALESCE(s.cover_asset_id,
+        (SELECT json_extract(b.content, '$.asset_id') FROM blocks b
+         WHERE b.story_id = s.id AND b.type = 'hero' AND json_extract(b.content, '$.asset_id') != ''
+         ORDER BY b.position ASC LIMIT 1)) AS asset_id
+      FROM share_group_stories gs JOIN stories s ON s.id = gs.story_id
+      WHERE gs.group_id = ? AND s.published = 1
+      ORDER BY gs.added_at DESC, s.created_at DESC LIMIT 1
+    `).get(group.id);
+    const ogImage = latest?.asset_id
+      ? `${base}/api/public/${latest.slug}/assets/${latest.asset_id}/thumb?size=preview`
+      : '';
+    const desc = group.description || `Stories partilhadas com ${group.name}`;
+
+    const tags = [
+      `<title>${esc(group.name)} · Memoire</title>`,
+      `<meta name="description" content="${esc(desc)}" />`,
+      `<meta property="og:type" content="website" />`,
+      `<meta property="og:url" content="${esc(`${base}/g/${group.slug}`)}" />`,
+      `<meta property="og:title" content="${esc(group.name)}" />`,
+      `<meta property="og:description" content="${esc(desc)}" />`,
+      ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : '',
+      `<meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />`,
+    ].filter(Boolean).join('\n    ');
+
+    res.type('html').send(indexHtml.replace('<title>Memoire</title>', tags));
+  });
+
+  app.get('*',(_req, res) => res.sendFile(path.join(frontendDist, 'index.html')));
 }
 
 app.listen(PORT, () => {

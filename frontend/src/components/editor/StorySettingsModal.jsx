@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../lib/api.js';
 
 function formatSlug(raw) {
@@ -27,6 +27,29 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [groups, setGroups] = useState(null);
+  const [groupIds, setGroupIds] = useState(new Set());
+  const [initialGroupIds, setInitialGroupIds] = useState(new Set());
+
+  useEffect(() => {
+    Promise.all([api.get('/api/groups'), api.get(`/api/stories/${storyId}/groups`)])
+      .then(([g, mine]) => {
+        setGroups(g.data);
+        setGroupIds(new Set(mine.data));
+        setInitialGroupIds(new Set(mine.data));
+      })
+      .catch(() => setGroups([]));
+  }, [storyId]);
+
+  const groupsChanged = groupIds.size !== initialGroupIds.size || [...groupIds].some((id) => !initialGroupIds.has(id));
+
+  function toggleGroup(id) {
+    setGroupIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   const slugChanged = form.slug !== story.slug;
   const slugError = validateSlug(form.slug);
@@ -48,6 +71,9 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
         description: form.description.trim() || null,
         slug: form.slug,
       });
+      if (groupsChanged) {
+        await api.put(`/api/stories/${storyId}/groups`, { group_ids: [...groupIds] });
+      }
       onSaved(res.data);
       onClose();
     } catch (err) {
@@ -77,7 +103,7 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
         <div className="flex items-start justify-between mb-5">
           <div>
             <h3 className="font-display text-2xl italic font-light text-ink leading-none">Definições da story</h3>
-            <p className="text-xs font-light text-ink-faint mt-1.5">Título, descrição e URL pública</p>
+            <p className="text-xs font-light text-ink-faint mt-1.5">Título, descrição, URL pública e grupos</p>
           </div>
           <button className="btn btn-ghost btn-sm text-ink-faint mt-0.5" onClick={onClose}>✕</button>
         </div>
@@ -124,6 +150,34 @@ export default function StorySettingsModal({ storyId, story, onSaved, onClose })
               <p className="text-xs font-light text-ink-muted bg-paper-deep px-2.5 py-1.5 rounded-sm border border-border">
                 ⚠ O link público vai mudar — partilhas antigas deixam de funcionar
               </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="field-label">Grupos</label>
+            {groups === null && <p className="text-xs font-light text-ink-faint">A carregar…</p>}
+            {groups?.length === 0 && (
+              <p className="text-xs font-light text-ink-faint">Ainda não tens grupos — cria-os em “Grupos” no dashboard.</p>
+            )}
+            {groups?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {groups.map((g) => {
+                  const on = groupIds.has(g.id);
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleGroup(g.id)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink-muted border-border hover:border-border-strong'}`}
+                    >
+                      {on ? '✓ ' : ''}{g.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {groups?.length > 0 && !story.published && groupIds.size > 0 && (
+              <p className="text-xs font-light text-ink-faint">Só aparece nos grupos depois de publicada.</p>
             )}
           </div>
 

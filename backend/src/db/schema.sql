@@ -123,3 +123,23 @@ CREATE TABLE IF NOT EXISTS asset_ai_scores (
   exif_rating       INTEGER,
   source            TEXT DEFAULT 'gemini'
 );
+
+-- Grupos de partilha: um link fixo (/g/:slug) que lista as stories partilhadas com o grupo.
+-- ("groups" é palavra reservada no SQLite, daí o prefixo share_)
+CREATE TABLE IF NOT EXISTS share_groups (
+  id            TEXT PRIMARY KEY,
+  slug          TEXT UNIQUE NOT NULL,
+  name          TEXT NOT NULL,
+  description   TEXT,
+  password_hash TEXT,
+  created_by    TEXT REFERENCES users(id),
+  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS share_group_stories (
+  group_id    TEXT NOT NULL REFERENCES share_groups(id) ON DELETE CASCADE,
+  story_id    TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  added_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, story_id)
+);

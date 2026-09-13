@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import ViewerBlock from '../components/viewer/ViewerBlock.jsx';
 import StoryNav from '../components/viewer/StoryNav.jsx';
@@ -60,6 +60,7 @@ function groupIntoSections(blocks) {
 export default function Viewer() {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
+  const fromGroup = useLocation().state?.fromGroup;
   const [story, setStory] = useState(null);
   const [blocks, setBlocks] = useState([]);
   const [locked, setLocked] = useState(false);
@@ -274,6 +275,7 @@ export default function Viewer() {
         onPeopleToggle={togglePeople}
         peopleVisible={peopleVisible}
         storyTitle={story.title}
+        fromGroup={fromGroup}
       />
 
       {/* People filter panel */}

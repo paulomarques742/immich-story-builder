@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const LogomarkSVG = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="var(--paper)" xmlns="http://www.w3.org/2000/svg">
@@ -24,7 +25,7 @@ const PeopleIcon = () => (
   </svg>
 );
 
-export default function ViewerTopbar({ onPeopleToggle, peopleVisible, storyTitle }) {
+export default function ViewerTopbar({ onPeopleToggle, peopleVisible, storyTitle, fromGroup }) {
   const [scrolled, setScrolled] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -56,7 +57,16 @@ export default function ViewerTopbar({ onPeopleToggle, peopleVisible, storyTitle
       borderBottom: `1px solid color-mix(in srgb, var(--paper-deep) ${scrolled ? '80%' : '60%'}, transparent)`,
       transition: 'border-color 300ms var(--ease)',
     }}>
-      {/* Logo */}
+      {/* Logo — ou, vindo de um grupo, link de volta ao grupo */}
+      {fromGroup ? (
+        <Link to={`/g/${fromGroup.slug}`} style={{
+          display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', minWidth: 0,
+          fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 400, color: 'var(--ink-soft)',
+        }}>
+          <span aria-hidden="true">←</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fromGroup.name}</span>
+        </Link>
+      ) : (
       <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
         <div style={{
           width: 26, height: 26, background: 'var(--ink)', borderRadius: 3,
@@ -69,6 +79,7 @@ export default function ViewerTopbar({ onPeopleToggle, peopleVisible, storyTitle
           fontWeight: 400, letterSpacing: '0.04em', color: 'var(--ink)',
         }}>Memoire</span>
       </a>
+      )}
 
       {/* Right buttons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
