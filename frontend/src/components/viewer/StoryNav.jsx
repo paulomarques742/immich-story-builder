@@ -7,6 +7,7 @@ function parse(block) {
 
 export default function StoryNav({ blocks, visible }) {
   const [activeId, setActiveId] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const sections = blocks
     .filter((b) => {
@@ -46,6 +47,13 @@ export default function StoryNav({ blocks, visible }) {
     return () => observers.forEach((o) => o.disconnect());
   }, [blocks, visible]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
   if (!visible || sections.length === 0) return null;
 
   function scrollTo(id) {
@@ -53,6 +61,43 @@ export default function StoryNav({ blocks, visible }) {
   }
 
   return (
+    <>
+    {/* Mobile: floating button + section sheet (desktop side nav is hidden ≤720px) */}
+    <button
+      type="button"
+      className="mv-nav-fab"
+      aria-label="Índice"
+      aria-expanded={mobileOpen}
+      onClick={() => setMobileOpen((o) => !o)}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none" />
+        <line x1="9" y1="6" x2="20" y2="6" />
+        <line x1="9" y1="12" x2="20" y2="12" />
+        <line x1="9" y1="18" x2="20" y2="18" />
+      </svg>
+    </button>
+
+    {mobileOpen && (
+      <div className="mv-nav-sheet-backdrop" onClick={() => setMobileOpen(false)}>
+        <div className="mv-nav-sheet" role="dialog" aria-label="Índice" onClick={(e) => e.stopPropagation()}>
+          <div className="mv-nav-sheet-title">Índice</div>
+          {sections.map((sec) => (
+            <a
+              key={sec.id}
+              href={`#block-${sec.id}`}
+              className={`mv-nav-sheet-item${activeId === sec.id ? ' mv-nav-sheet-active' : ''}`}
+              onClick={(e) => { e.preventDefault(); setMobileOpen(false); scrollTo(sec.id); }}
+            >
+              {sec.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
     <nav className="mv-side-nav" style={{
       position: 'fixed', right: '2rem', top: '50%',
       transform: 'translateY(-50%)', zIndex: 50,
@@ -109,5 +154,6 @@ export default function StoryNav({ blocks, visible }) {
         );
       })}
     </nav>
+    </>
   );
 }

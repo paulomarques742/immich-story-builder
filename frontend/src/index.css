@@ -406,9 +406,59 @@ select:focus {
 .mv-photo-asym-main:hover .mv-photo-img { transform: scale(1.03); }
 .mv-photo-asym-stack-item:hover .mv-photo-img { transform: scale(1.06); transition-duration: 550ms; }
 
+/* ── Mobile story index (floating button + sheet) ─────────────── */
+.mv-nav-fab {
+  display: none;
+  position: fixed; left: 20px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 150;
+  width: 44px; height: 44px; border-radius: 50%;
+  align-items: center; justify-content: center;
+  background: var(--paper); color: var(--ink);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 4px 16px rgba(26,24,20,0.18);
+  cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.mv-nav-fab:active { transform: scale(0.94); }
+.mv-nav-sheet-backdrop {
+  position: fixed; inset: 0; z-index: 160;
+  background: rgba(26,24,20,0.28);
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  padding: 0 16px calc(80px + env(safe-area-inset-bottom, 0px));
+  animation: mv-nav-fade 160ms var(--ease-out);
+}
+.mv-nav-sheet {
+  background: var(--paper); color: var(--ink);
+  border: 0.5px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(26,24,20,0.22);
+  width: min(300px, 100%); max-height: 60vh; overflow-y: auto;
+  padding: 8px;
+  display: flex; flex-direction: column;
+  animation: mv-nav-rise 200ms var(--ease-out);
+}
+.mv-nav-sheet-title {
+  font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 8px 10px 6px;
+}
+.mv-nav-sheet-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border-radius: 8px;
+  font-size: 0.9rem; color: var(--ink-muted); text-decoration: none;
+}
+.mv-nav-sheet-item::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ink-faint); flex-shrink: 0;
+}
+.mv-nav-sheet-item:active { background: var(--paper-warm); }
+.mv-nav-sheet-active { color: var(--ink); }
+.mv-nav-sheet-active::before { width: 7px; height: 7px; background: var(--mv-accent); }
+@keyframes mv-nav-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mv-nav-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 /* ── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .mv-side-nav { display: none !important; }
+  .mv-nav-fab { display: flex; }
   .mv-story-body { padding: 0 1.25rem 4rem; }
   .mv-hero-content { padding: 2.5rem 1.5rem !important; }
   .mv-scroll-indicator { right: 1.5rem !important; }
