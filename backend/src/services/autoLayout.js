@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const { generateNarrative, generateCaption, generateStoryConcepts } = require('./gemini');
 const { scoreFromImmichData, buildAlbumSummary, selectRepresentativeAssets } = require('./immichMetadata');
 

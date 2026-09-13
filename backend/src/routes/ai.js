@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { runAutoLayout, generateSuggestions } = require('../services/autoLayout');

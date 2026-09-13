@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 
 module.exports = function startSyncJob(db) {
   const minutes = parseInt(process.env.SYNC_INTERVAL_MINUTES || '15', 10);
